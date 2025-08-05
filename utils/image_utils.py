@@ -228,7 +228,9 @@ def image_align(img, face_landmarks, output_size=256, transform_size=1024,
     # Transform.
     img = img.transform((transform_size, transform_size), PIL.Image.QUAD, (quad + 0.5).flatten(), PIL.Image.BILINEAR)
     if output_size < transform_size:
-        img = img.resize((output_size, output_size), PIL.Image.ANTIALIAS)
+        #img = img.resize((output_size, output_size), PIL.Image.ANTIALIAS)
+        img = img.resize((output_size, output_size), PIL.Image.LANCZOS)
+        
     
     return np.asarray(img)
 
