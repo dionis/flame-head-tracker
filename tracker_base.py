@@ -32,7 +32,7 @@ from submodules.flame_fitting.renderer import Renderer
 from submodules.face_parsing.FaceParsingUtil import FaceParsing
 
 # DECA
-from utils.deca_inference_utils import create_deca_model, get_flame_code_from_deca
+from utils.deca_inference_utils import create_deca_model, get_flame_code_from_deca, get_flame_code_from_deca_process
 
 # MICA
 from utils.mica_inference_utils import create_mica_model, get_shape_code_from_mica
@@ -350,7 +350,10 @@ class Tracker():
             - light: light coefficients [1, 9, 3] from DECA
         """
         # run DECA and MICA models
-        deca_dict = get_flame_code_from_deca(self.deca, img, self.device)
+        #deca_dict = get_flame_code_from_deca(self.deca, img, self.device)
+
+        deca_dict = get_flame_code_from_deca_process(self.deca, img, self.device)
+
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # convert RGB to BGR
         shape_code = get_shape_code_from_mica(self.mica, img_bgr, lmks_68, self.device) # [1, 300]
         recon_dict = {}

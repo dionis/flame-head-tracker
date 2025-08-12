@@ -20,13 +20,13 @@ else:
 
 # Add project paths to the system path
 # Adjust these paths if your directory structure is different
-DECA_PATH = 'DECA'
-MP_TO_FLAME_PATH = 'mediapipe-blendshapes-to-flame'
+DECA_PATH = '../DECA'
+MP_TO_FLAME_PATH = '../mediapipe-blendshapes-to-flame'
 
 FLAME_HEAD_TRAKER = 'flame-head-tracker'
 sys.path.append(DECA_PATH)
 sys.path.append(MP_TO_FLAME_PATH)
-sys.path.append(FLAME_HEAD_TRAKER)
+#sys.path.append(FLAME_HEAD_TRAKER)
 
 import trimesh
 
@@ -51,8 +51,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time # import the time module
 
-if sys.version_info < (3, 11):
-  from tracker_base import Tracker
+#if sys.version_info < (3, 11):
+from tracker_base import Tracker
 
 from submodules.decalib.deca import DECA
 from submodules.flame_lib.FLAME import FLAME
@@ -380,10 +380,14 @@ def main(
 
 
 def main_another_example(
-    img_path="/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
+    img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
+    # get the filename from the path
     out_dir="out_arkit_flame",
     amplitude=1.0):  # 0..1; 1.0 is full strength
+
     os.makedirs(out_dir, exist_ok=True)
+    file_name = os.path.basename(img_path)
+    file_name, _ = os.path.splitext(file_name)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -417,6 +421,17 @@ def main_another_example(
     start_time = time.time() # record the start time
 
     ret_dict = tracker.load_image_and_run(img_path, realign=True, photometric_fitting=False) 
+    
+    print("*** !! OK Size of data in Deca dict for get texture Ok !!!")
+    print(tracker.deca.ret_dict.keys())
+   
+    os.makedirs(os.path.join(out_dir, file_name), exist_ok=True)
+
+    tracker.deca.save_obj(
+        os.path.join(out_dir, file_name, file_name + '.obj'), 
+        tracker.deca.ret_dict
+        )
+    #print(tracker.deca.ret_dict.keys)
 
     end_time = time.time() # record the end time
 
@@ -612,7 +627,7 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
     # NOTE: The DECA project structure uses a command-line interface.
     # This simulates running the command.
     deca_reconstruct_command = [
-        'python', f'/teamspace/studios/this_studio/{DECA_PATH}/demos/demo_reconstruct.py',
+        'python', f'/teamspace/studios/this_studio/DECA/demos/demo_reconstruct.py',
         '--inputpath', image_path,
         '--savefolder', output_dir,
         '--saveDepth', 'True',
@@ -650,10 +665,10 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
         print(f"Error during DECA reconstruction: {e}")
         return None
 if __name__ == "__main__":
-    #main_another_example()
+    main_another_example()
    
     #export_from_objs_to_fbx()
    
    
     #main()
-    step_1_reconstruct_3d_from_image()
+    #step_1_reconstruct_3d_from_image()

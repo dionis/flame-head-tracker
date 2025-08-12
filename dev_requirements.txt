@@ -28,6 +28,7 @@ jupyterlab
 bpy==4.2.0
 gdown
 ninja
+trimesh
 ## For unstalling pythorch3d
 #
 #   Bibliografy:

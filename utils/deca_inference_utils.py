@@ -42,6 +42,23 @@ def get_flame_code_from_deca(deca, img, device):
     """
     image = deca.crop_image(img).to(device)
     deca_dict = deca.encode(image[None])
+    deca.ret_dict = deca_dict
     return deca_dict
+
+@torch.no_grad()
+def get_flame_code_from_deca_process(deca, img, device):
+    """
+    input:
+        deca: DECA model
+        img: [H, W, 3] uint8 RGB-channels
+    return:
+        deca_dict: dict
+    """
+    image = deca.crop_image(img).to(device)
+    deca_dict = deca.encode(image[None])
+    opdict, visdict = deca.decode(deca_dict) #t
+    deca.ret_dict = opdict
+    return deca_dict
+
 
 

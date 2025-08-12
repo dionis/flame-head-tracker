@@ -23,5 +23,6 @@ filterpy==1.4.5
 ipython==8.27.0
 jupyterlab
 byp
+trimesh
 #torch
 #git+https://github.com/facebookresearch/pytorch3d.git@stable
