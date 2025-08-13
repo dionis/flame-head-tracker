@@ -665,9 +665,13 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
         print(f"Error during DECA reconstruction: {e}")
         return None
 if __name__ == "__main__":
+    #Get 3D information and convert to 52 Blandshep from Arkit
     main_another_example()
    
-    #export_from_objs_to_fbx()
+   #Create fbx file with information
+    export_from_objs_to_fbx()
+
+   #Clean and free resources
    
    
     #main()
