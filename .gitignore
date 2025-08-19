@@ -40,4 +40,5 @@ models/uv_face_eye_mask.png
 models/uv_face_mask.png
 models/ear_landmarker.pth
 
+out_arkit_flame/*
 
