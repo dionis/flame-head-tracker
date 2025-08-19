@@ -554,19 +554,27 @@ def create_textured_material(material_name, texture_path):
     
     # Load the texture image.
     if os.path.exists(texture_path):
+        print(f" Extract image features in: {texture_path}")
+
         image_texture.image = bpy.data.images.load(texture_path, check_existing=True)
+
     else:
         print(f"Warning: Texture file not found in {texture_path}")
         return None
     
-    # Link the nodes.
-    links = mat.node_tree.links
-    links.new(image_texture.outputs['Color'], principled_bsdf.inputs)
-    links.new(principled_bsdf.outputs, material_output.inputs)
-    
     # Arrange the position of nodes for better visualization.
     principled_bsdf.location = (-200, 0)
     image_texture.location = (-400, 0)
+    
+    # Link the nodes.
+    links = mat.node_tree.links
+    links.new(image_texture.outputs[0], principled_bsdf.inputs[0])
+    links.new(principled_bsdf.outputs[0], material_output.inputs[0])
+    
+    #mat.node_tree.nodes["Principled BSDF"].inputs['Specular'].default_value = 0
+    #mat.node_tree.nodes["Principled BSDF"].inputs['Roughness'].default_value = 0.5
+    
+
 
     return mat
 
