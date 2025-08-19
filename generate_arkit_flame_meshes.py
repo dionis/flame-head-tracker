@@ -523,13 +523,75 @@ def main_another_example(
     
     Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
     print(f"Generated 52 pose meshes in: {out_dir} for create a FBX files")
+    
+    ###Return adress to texture files and texture file name
+    return (os.path.join(out_dir, "neutral.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
+    
 
-def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', blandeshape_directory = ''):
+#
+#
+def create_textured_material(material_name, texture_path):
+    """
+     Create a material and a node tree to assign a texture.
+    """
+    # Create a new material or access an existing one.
+    mat = bpy.data.materials.get(material_name)
+    if not mat:
+        mat = bpy.data.materials.new(name = material_name)
+    
+    mat.use_nodes = True
+    
+    # Clean up the existing node tree.
+    nodes = mat.node_tree.nodes
+    nodes.clear()
+
+    # Create the Principled BSDF node and the output node.
+    principled_bsdf = nodes.new(type = 'ShaderNodeBsdfPrincipled')
+    material_output = nodes.new(type = 'ShaderNodeOutputMaterial')
+    
+    # Create the image texture node.
+    image_texture = nodes.new('ShaderNodeTexImage')
+    
+    # Load the texture image.
+    if os.path.exists(texture_path):
+        image_texture.image = bpy.data.images.load(texture_path, check_existing=True)
+    else:
+        print(f"Warning: Texture file not found in {texture_path}")
+        return None
+    
+    # Link the nodes.
+    links = mat.node_tree.links
+    links.new(image_texture.outputs['Color'], principled_bsdf.inputs)
+    links.new(principled_bsdf.outputs, material_output.inputs)
+    
+    # Arrange the position of nodes for better visualization.
+    principled_bsdf.location = (-200, 0)
+    image_texture.location = (-400, 0)
+
+    return mat
+
+
+
+def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
         # CONFIG
     IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
     OUT_FBX = IN_DIR / "arkit_52_animation.fbx"
     SCENE_FPS = 30
+    
+    TEXTURE_DIR = Path(texture_files_dir if texture_files_dir != '' else IN_DIR)  # where the texture files are
+   
+    #Scene Cleanup: All objects in the default scene (camera, light, cube) 
+    # are removed to start with a clean scene.
+    if bpy.ops.object.mode_set.poll():
+      bpy.ops.object.mode_set(mode='OBJECT')
 
+    # Select all objects in the scene.
+    bpy.ops.object.select_all(action='SELECT')
+
+    # Delete the selected objects.
+    bpy.ops.object.delete()
+    
+    #--------------------------------------------------------
 
     bpy.ops.wm.read_homefile(use_empty=True)
     bpy.context.scene.render.fps = SCENE_FPS
@@ -539,8 +601,22 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', blandeshape_director
     # Import neutral mesh
     #bpy.ops.import_scene.obj(filepath=str(neutral_path))
     
+    texture_file = TEXTURE_DIR / texture_filename
+    assert texture_file.exists(), f"Missing texture file in {texture_file}"    
+    
+    
 
     bpy.ops.wm.obj_import(filepath=str(neutral_path))
+    
+    # Assigns the material to the active object.
+    active_object = bpy.context.active_object
+    if active_object and active_object.type == 'MESH':
+      new_material = create_textured_material("DECA_Material", str(texture_file))
+    
+   # Delete existing material slots and add a new one.
+    active_object.data.materials.clear()
+    active_object.data.materials.append(new_material)
+    
 
     obj = bpy.context.selected_objects[0]
     obj.name = "Head"
@@ -587,17 +663,46 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', blandeshape_director
         obj.data.shape_keys.key_blocks[name].value = 1.0
         obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
 
+    ###---------------------------------------------------------
+    #
+    #  A clean processs before export
+    #
+    ###----------------------------------------------------------
+    # Enter 'EDIT' mode and select the entire mesh for cleaning.
+    # bpy.ops.object.mode_set(mode='EDIT')
+    # bpy.ops.mesh.select_all(action='SELECT')
+
+    # # Remove duplicate vertices, correcting non-manifold geometry.
+    # # The threshold may need adjustment depending on the scale of the model.
+    # bpy.ops.mesh.remove_doubles(threshold=0.0001)
+
+    # # Return to 'OBJECT' mode.
+    # bpy.ops.object.mode_set(mode='OBJECT')
+
+    # # Scales the object to correct non-uniform transformations.
+    # bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    
+    
     # FBX export (axes for Unreal: -Z forward, Y up)
     bpy.ops.export_scene.fbx(
         filepath=str(OUT_FBX),
-        use_selection=False,
+        use_selection = False,
         add_leaf_bones=False,
         bake_anim=True,
         bake_anim_use_all_bones=False,
         bake_anim_use_nla_strips=False,
         bake_anim_force_startend_keying=True,
         apply_scale_options='FBX_SCALE_ALL',
-        axis_forward='-Z', axis_up='Y'
+        axis_forward='-Z', 
+        axis_up='Y',
+        
+        object_types={'MESH'},  # Export only meshes
+        mesh_smooth_type='FACE',   # Smooth shading
+        use_mesh_modifiers=True,  # Apply modifiers
+        use_triangles=True,  # Export as triangles
+        global_scale=1.0,  # Scale factor
+        path_mode='COPY', 
+        embed_textures = True,  # Automatically handle paths for textures
     )
     print(f"Exported: {OUT_FBX}")
 
@@ -664,12 +769,17 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
     except Exception as e:
         print(f"Error during DECA reconstruction: {e}")
         return None
+
 if __name__ == "__main__":
     #Get 3D information and convert to 52 Blandshep from Arkit
-    main_another_example()
+    neutral_obj_address, texture_file_dir, texture_filename = main_another_example()
    
    #Create fbx file with information
-    export_from_objs_to_fbx()
+    export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
+                             texture_files_dir = texture_file_dir, 
+                             texture_filename = texture_filename, 
+                             blandeshape_directory = BLANDESHAPE_DIRECOTRY_NAME
+                             )
 
    #Clean and free resources
    
