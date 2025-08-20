@@ -109,7 +109,8 @@ def process_landmarker_stream(
         "is_neutral_face": result.is_neutral_face,
     }, gr.Label(value="Yes" if result.is_neutral_face else "No", elem_classes=["neutral-face-true"] if result.is_neutral_face else ["neutral-face-false"]), gr.Label(value="Yes" if len(result.face_landmarks) == 1 else "No", elem_classes=["single-face-true"] if len(result.face_landmarks) == 1 else ["single-face-false"])
 
-
+def clear_components():
+    return None, {}, None, None
 with gr.Blocks(title="Detección de Rostros con MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
     gr.Markdown(
         """
@@ -152,6 +153,7 @@ with gr.Blocks(title="Detección de Rostros con MediaPipe", theme=gr.themes.Soft
         )
 
     with gr.Tab("Webcam"):
+        clear_manual_btn = gr.Button("Clear Manually")
         with gr.Row():
             cam_in = gr.Image(
                 sources=["webcam"],
@@ -168,6 +170,13 @@ with gr.Blocks(title="Detección de Rostros con MediaPipe", theme=gr.themes.Soft
             inputs=[cam_in, min_det, min_track, refine],
             outputs=[cam_out, cam_json],
         )
+        # cam_in.release(
+        #     fn=clear_components,
+        #     outputs=[cam_out, cam_json],
+        # )
+        clear_manual_btn.click(clear_components, inputs=[], outputs=[cam_out, cam_json])
+
+
 
     with gr.Tab("Face Landmarker"):
         gr.Markdown(
@@ -205,6 +214,7 @@ with gr.Blocks(title="Detección de Rostros con MediaPipe", theme=gr.themes.Soft
             )
         
         with gr.Tab("Webcam Landmarker"):
+            
             with gr.Row():
                 land_cam_in = gr.Image(
                     sources=["webcam"],
@@ -224,17 +234,31 @@ with gr.Blocks(title="Detección de Rostros con MediaPipe", theme=gr.themes.Soft
                  outputs=[land_cam_out, land_cam_json,  land_single_face_label],
                 #outputs=[land_cam_out, land_cam_json, land_neutral_label, land_single_face_label],
             )
+            # land_cam_in.release(
+            #     fn=clear_components,
+            #   ,
+            # )
+            clear_manual_btn.click(clear_components, inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label])
 
-    with gr.Tab("Visualizador 3D"):
+
+
+    with gr.Tab("3D viewer"):
         gr.Markdown(
             """
-            ### Visualizador de Modelos 3D
-            - Sube un archivo 3D (OBJ, FBX, GLTF/GLB, STL) para visualizarlo en el navegador.
-            - Soporta modelos con texturas.
+            ###3D Model Viewer
+            - Upload a 3D file (OBJ, GLTF/GLB, STL) to view in the browser.
+            - Supports models with textures.
             """
         )
         with gr.Row():
-            model_in = gr.Model3D(label="Modelo 3D", interactive=True)
+             # Replace with your converted file
+             #oficial_path 
+             gbl_oficial_path = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
+             
+             model_in =  gr.Model3D( value = gbl_oficial_path, # Replace with your converted file
+                                     label="My 3D Model",
+                                     clear_color=(0, 0, 0, 0) # Example: Transparent background
+                     ) if os.path.exists(gbl_oficial_path)  else gr.Model3D(label="Modelo 3D", interactive=True)
             # No explicit output needed for gr.Model3D as it's a viewer
 
 

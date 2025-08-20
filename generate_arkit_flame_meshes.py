@@ -4,6 +4,7 @@ from pathlib import Path
 from PIL import Image
 import subprocess
 import cv2
+import shutil
 
 if sys.version_info >= (3, 11):
     print("python version is 3.11 or higher. attempting to import bpy...")
@@ -580,6 +581,19 @@ def create_textured_material(material_name, texture_path):
 
 
 
+def export_blender_scene_fbl(output_dir = 'out_arkit_flame', filename = 'arkit_52_animation'):
+    # Habilitar el complemento glTF 2.0 si no está activo (opcional, pero recomendado)
+    bpy.ops.preferences.addon_enable(module="io_scene_gltf2")
+    
+    IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
+    OUT_GBL = IN_DIR / f"{filename}.glb"
+
+
+    # Exportar la escena como GLB
+    bpy.ops.export_scene.gltf(filepath= str(OUT_GBL), export_format='GLB')
+
+    print(f"Exported: {OUT_GBL}")
+
 def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
         # CONFIG
     IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
@@ -610,11 +624,22 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
     #bpy.ops.import_scene.obj(filepath=str(neutral_path))
     
     texture_file = TEXTURE_DIR / texture_filename
-    assert texture_file.exists(), f"Missing texture file in {texture_file}"    
+    assert texture_file.exists(), f"Missing texture file in {texture_file}"
+    print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
+   
+    # Copy file from texture_file to IN_DIR
+    dest_texture_path = IN_DIR / "neutral.png"
+    shutil.copy(str(texture_file), str(dest_texture_path))   
+    
+    
+    
+ 
     
     
 
-    bpy.ops.wm.obj_import(filepath=str(neutral_path))
+    #bpy.ops.wm.obj_import(filepath=str(neutral_path))
+    
+    bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
     
     # Assigns the material to the active object.
     active_object = bpy.context.active_object

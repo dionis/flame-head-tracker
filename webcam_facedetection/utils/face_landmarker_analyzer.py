@@ -30,6 +30,7 @@ class FaceLandmarkerResult(NamedTuple):
 class FaceLandmarkerAnalyzer:
     def __init__(self, model_path: str = f"models{os.sep}face_landmarker_v2_with_blendshapes.task"):
         self.model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), model_path)
+        self.MAX_NUMBER_FACE = 50 #Ma
         self.detector = self._load_detector()
         
         #A neutral face usually appears when most expression blendshape scores are close to zero, 
@@ -61,7 +62,7 @@ class FaceLandmarkerAnalyzer:
             running_mode=vision.RunningMode.IMAGE,
             output_face_blendshapes=True,
             output_facial_transformation_matrixes=True,
-            num_faces=1,
+            num_faces =  self.MAX_NUMBER_FACE,
         )
         return vision.FaceLandmarker.create_from_options(options)
 
@@ -108,9 +109,32 @@ class FaceLandmarkerAnalyzer:
             #We exclude the eye_open category because it is not a facial expression
             exclude_categories = ["cheekSquintLeft", "cheekSquintRight", "_neutral", "noseSneerLeft", "noseSneerRight"]
             is_neutral_face = self.is_neutral( [ element for element in blendshapes[0] if element.category_name not in exclude_categories])  
+              
+            #Filter blandshape for only neutral face important analysis
+            blendshapes[0] = [element for element in blendshapes[0] if element.category_name in exclude_categories]
+            expressions = {element.category_name: element.score for element in blendshapes[0]}
+        
         else:
             is_neutral_face = False
+        if is_neutral_face:
+            # Generate a unique filename for the neutral image
+            timestamp = int(cv2.getTickCount() / cv2.getTickFrequency())
+            filename = f"neutral_anotated_face_{timestamp}.jpg"
+            output_dir = "neutral_images"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Remove existing files in the output directory
+            for f in os.listdir(output_dir):
+                os.remove(os.path.join(output_dir, f))
 
+            output_path = os.path.join(output_dir, filename)
+            cv2.imwrite(output_path, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
+            
+            filename = f"neutral_face_{timestamp}.jpg"
+            output_path = os.path.join(output_dir, filename)
+            cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+            print(f"Saved neutral face image to {output_path}")
+    
         return FaceLandmarkerResult(
             annotated_image_rgb = annotated_image,
             face_landmarks = face_landmarks_list,
