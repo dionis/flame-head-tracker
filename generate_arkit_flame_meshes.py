@@ -638,8 +638,10 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
     
 
     #bpy.ops.wm.obj_import(filepath=str(neutral_path))
+    filter_image = True
+    bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
     
-    bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
+    #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
     
     # Assigns the material to the active object.
     active_object = bpy.context.active_object
