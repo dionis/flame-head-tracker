@@ -421,7 +421,7 @@ def main_another_example(
     # img will be replaced by the realigned image
     start_time = time.time() # record the start time
 
-    ret_dict = tracker.load_image_and_run(img_path, realign=True, photometric_fitting=False) 
+    ret_dict = tracker.load_image_and_run(img_path, realign=True, photometric_fitting = True) 
     
     print("*** !! OK Size of data in Deca dict for get texture Ok !!!")
     print(tracker.deca.ret_dict.keys())
@@ -505,6 +505,20 @@ def main_another_example(
         jaw_pose = torch.from_numpy(pose[:, 3:]).to(device).float() if pose.shape[1] >= 6 else torch.zeros((1,3), device=device)
     
         head_pose = torch.from_numpy(pose[:,:3]).to(device).float() 
+        
+        tracker.deca.ret_dict['exp'] = torch.from_numpy(exp).to(device).float()
+        tracker.deca.ret_dict['pose'] = torch.from_numpy(pose).to(device).float()  
+        tracker.deca.ret_dict['eye_pose'] = torch.from_numpy(eye_pose).to(device).float()    
+             
+       # [N, D_shape]
+
+        new_file_name = f"{name}_neutral.obj"
+        
+        tracker.deca.save_obj(
+          os.path.join(out_dir, file_name),
+          new_file_name, 
+          tracker.deca.ret_dict
+        )
 
         with torch.no_grad():
            # verts, _ = flame_layer(shape_params=shape_betas, expression_params=exp_t, pose_params=full_pose)
