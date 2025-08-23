@@ -28,17 +28,21 @@ class FaceLandmarkerResult(NamedTuple):
 
 
 class FaceLandmarkerAnalyzer:
-    def __init__(self, model_path: str = f"models{os.sep}face_landmarker_v2_with_blendshapes.task"):
+    def __init__(self, model_path: str = f"models{os.sep}face_landmarker_v2_with_blendshapes.task", neutral_image_directory = ''):
         self.model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), model_path)
-        self.MAX_NUMBER_FACE = 50 #Ma
+         
+        self.MAX_NUMBER_FACE = 50 #Max number of face for detecting
+       
         self.detector = self._load_detector()
         
         #A neutral face usually appears when most expression blendshape scores are close to zero, 
         # i.e., no significant activation of smile, frown, eyebrow raise, surprise, etc.
         
         self.threshold = 0.5
-        #float(1/5)
         
+        self.path_to_neutral_image = neutral_image_directory
+        #float(1/5)
+       
 
 
 
@@ -109,18 +113,19 @@ class FaceLandmarkerAnalyzer:
             #We exclude the eye_open category because it is not a facial expression
             exclude_categories = ["cheekSquintLeft", "cheekSquintRight", "_neutral", "noseSneerLeft", "noseSneerRight"]
             is_neutral_face = self.is_neutral( [ element for element in blendshapes[0] if element.category_name not in exclude_categories])  
-              
+           
             #Filter blandshape for only neutral face important analysis
             blendshapes[0] = [element for element in blendshapes[0] if element.category_name in exclude_categories]
             expressions = {element.category_name: element.score for element in blendshapes[0]}
         
         else:
             is_neutral_face = False
-        if is_neutral_face:
+
+        if is_neutral_face and len(face_landmarks_list) == 1:
             # Generate a unique filename for the neutral image
             timestamp = int(cv2.getTickCount() / cv2.getTickFrequency())
             filename = f"neutral_anotated_face_{timestamp}.jpg"
-            output_dir = "neutral_images"
+            output_dir =  "neutral_images" if not os.path.exists(self.path_to_neutral_image) else self.neutral_image_directory
             os.makedirs(output_dir, exist_ok=True)
             
             # Remove existing files in the output directory
@@ -134,7 +139,7 @@ class FaceLandmarkerAnalyzer:
             output_path = os.path.join(output_dir, filename)
             cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             print(f"Saved neutral face image to {output_path}")
-    
+           
         return FaceLandmarkerResult(
             annotated_image_rgb = annotated_image,
             face_landmarks = face_landmarks_list,
