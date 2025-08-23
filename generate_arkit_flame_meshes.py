@@ -518,8 +518,7 @@ def main_another_example(
         new_file_name = f"{name}_neutral.obj"
         
         tracker.deca.save_obj(
-          os.path.join(out_dir, file_name),
-          new_file_name, 
+          os.path.join(out_dir, file_name, new_file_name), 
           tracker.deca.ret_dict
         )
 
