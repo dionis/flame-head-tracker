@@ -512,6 +512,9 @@ def main_another_example(
              
        # [N, D_shape]
 
+        #About texture extraction 
+        #https://github.com/mikedh/trimesh/issues/1064
+        
         new_file_name = f"{name}_neutral.obj"
         
         tracker.deca.save_obj(
