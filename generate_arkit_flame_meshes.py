@@ -91,6 +91,8 @@ ARKIT_ORDER = [
 ]
  
 BLANDESHAPE_DIRECOTRY_NAME = "blandeshape_obj_files"
+BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS =  ''
+
 def plot(ret_dict, i=0, save_path = 'output', filename = 'image'):
     # plot some results
     plt.figure(figsize=(15,6))
@@ -473,11 +475,20 @@ def main_another_example(
 
     #verts_neutral, _, _ = flame_layer(shape_params= codedict['shape'], expression_params = exp0_t, pose_params=  codedict['pose'])
   
-    trimesh.Trimesh(
-        vertices = verts_neutral[0].detach().cpu().numpy(), 
-        faces = faces, 
-        process = False
-    ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
+    # trimesh.Trimesh(
+    #     vertices = verts_neutral[0].detach().cpu().numpy(), 
+    #     faces = faces, 
+    #     process = False
+    # ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
+    
+    
+    filename_to_copy = file_name + '.obj'
+    target_path = os.path.join(out_dir, 'neutral.obj')
+    source_path = os.path.join(out_dir, filename_to_copy.replace('.obj', '_detail.obj'))
+    
+    assert Path(source_path).exists(), f"Missing texture file in {source_path}"
+    shutil.copy(str(source_path), str(target_path)) 
+    print(f"Copy detailed obj file as neutral from : {source_path}")
 
     #save_obj_as_image(out_dir + os.sep + "neutral.obj",  save_path = out_dir, device = device)
 
@@ -488,6 +499,8 @@ def main_another_example(
     #Validate if exit 52 bladshape generation directory
     blandshape52Directory = Path(out_dir) / BLANDESHAPE_DIRECOTRY_NAME
     os.makedirs(blandshape52Directory, exist_ok=True)
+    
+    BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS = Path(out_dir) / file_name
 
     for idx, name in enumerate(ARKIT_ORDER, start=1):  # frames 1..52
         bs = np.zeros((52,), dtype=np.float32)
@@ -645,12 +658,7 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
    
     # Copy file from texture_file to IN_DIR
     dest_texture_path = IN_DIR / "neutral.png"
-    shutil.copy(str(texture_file), str(dest_texture_path))   
-    
-    
-    
- 
-    
+    shutil.copy(str(texture_file), str(dest_texture_path))     
     
 
     #bpy.ops.wm.obj_import(filepath=str(neutral_path))
@@ -684,11 +692,26 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
     for i, name in enumerate(ARKIT_ORDER, start=1):
         #blandshape_filename = f"{i:02d}_{name}.obj"
         blandshape_filename = f"{name}_neutral.obj"
+        
+        blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
+        
+        path_detailed = BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS / blandshape_filename_detailed
+        
+        print(f"Read detailed failed from => {path_detailed}")
+        
+        #Using obj detailed filename
+        
 
         path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
         #bpy.ops.import_scene.obj(filepath=str(path))
 
-        bpy.ops.wm.obj_import(filepath=str(path))
+        ################################################## 
+        #
+        #bpy.ops.wm.obj_import(filepath=str(path))
+        #
+        ###################################################
+        bpy.ops.wm.obj_import(filepath=str(path_detailed))
+        
 
         poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
         # Add shape key from the poser geometry
