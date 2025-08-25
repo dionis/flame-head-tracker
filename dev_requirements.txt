@@ -29,6 +29,7 @@ bpy==4.2.0
 gdown
 ninja
 trimesh
+DracoPy
 ## For unstalling pythorch3d
 #
 #   Bibliografy:

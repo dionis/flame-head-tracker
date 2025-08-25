@@ -674,19 +674,20 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
     
 
     #bpy.ops.wm.obj_import(filepath=str(neutral_path))
-    filter_image = True
+    #filter_image = True
+   
     bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
     
     #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
     
     # Assigns the material to the active object.
-    active_object = bpy.context.active_object
-    if active_object and active_object.type == 'MESH':
-      new_material = create_textured_material("DECA_Material", str(texture_file))
+    #active_object = bpy.context.active_object
+    #if active_object and active_object.type == 'MESH':
+    #  new_material = create_textured_material("DECA_Material", str(texture_file))
     
    # Delete existing material slots and add a new one.
-    active_object.data.materials.clear()
-    active_object.data.materials.append(new_material)
+    #active_object.data.materials.clear()
+    #active_object.data.materials.append(new_material)
     
 
     obj = bpy.context.selected_objects[0]
@@ -722,6 +723,7 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
         #bpy.ops.wm.obj_import(filepath=str(path))
         #
         ###################################################
+        
         bpy.ops.wm.obj_import(filepath=str(path_detailed))
         
 
@@ -770,6 +772,9 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
     
     
     # FBX export (axes for Unreal: -Z forward, Y up)
+
+    #export_blender_scene_fbl()
+
     bpy.ops.export_scene.fbx(
         filepath=str(OUT_FBX),
         use_selection = False,
