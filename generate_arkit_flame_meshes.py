@@ -387,6 +387,16 @@ def main_another_example(
     # get the filename from the path
     out_dir="out_arkit_flame",
     amplitude=1.0):  # 0..1; 1.0 is full strength
+   
+    if os.path.exists(out_dir):
+        try:
+            shutil.rmtree(out_dir)
+            print(f"successfully removed directory (Clean process): {out_dir}")
+        except OSError as e:
+            print(f"error: {out_dir} : {e.strerror}")
+
+
+
 
     os.makedirs(out_dir, exist_ok=True)
     file_name = os.path.basename(img_path)
@@ -484,7 +494,9 @@ def main_another_example(
     
     filename_to_copy = file_name + '.obj'
     target_path = os.path.join(out_dir, 'neutral.obj')
-    source_path = os.path.join(out_dir, filename_to_copy.replace('.obj', '_detail.obj'))
+    source_path = os.path.join(out_dir, file_name, filename_to_copy.replace('.obj', '_detail.obj'))
+
+    print(f"Find out the file in: {source_path}")
     
     assert Path(source_path).exists(), f"Missing texture file in {source_path}"
     shutil.copy(str(source_path), str(target_path)) 
@@ -695,7 +707,7 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
         
         blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
         
-        path_detailed = BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS / blandshape_filename_detailed
+        path_detailed = Path(TEXTURE_DIR) / blandshape_filename_detailed
         
         print(f"Read detailed failed from => {path_detailed}")
         
