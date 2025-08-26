@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import gradio as gr
 import numpy as np
+import subprocess
+import json
 
 from utils.face_analyzer import FaceAnalyzer, FaceAnalysisResult
 from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
@@ -12,7 +14,69 @@ from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarke
 
 analyzer = FaceAnalyzer()
 landmarker_analyzer = FaceLandmarkerAnalyzer()
+AVATAR_SCRIPT_PATH = "create_avatar.py"
+AVATAR_OUTPUT_DIR = "generated_avatars"
+os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 
+MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: '
+
+def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
+    try:
+        
+        if os.path.exists(AVATAR_OUTPUT_DIR):
+          return {"error": f"{MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST}{input_path}"} 
+        
+        command = [
+            "python",
+            AVATAR_SCRIPT_PATH,
+            "--input_path", input_path,
+            "--input_type", input_type,
+            "--output_dir", AVATAR_OUTPUT_DIR,
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        output = json.loads(result.stdout)
+        return output
+    except subprocess.CalledProcessError as e:
+        return {"error": f"Error running avatar script: {e.stderr}"}
+    except json.JSONDecodeError:
+        return {"error": f"Invalid JSON output from script: {result.stdout}"}
+    except FileNotFoundError:
+        return {"error": f"Avatar script not found at {AVATAR_SCRIPT_PATH}"}
+
+
+def create_avatar_image(image: np.ndarray) -> Dict[str, Any]:
+    if image is None:
+        return {"error": "No image provided for avatar creation"}
+    
+    # Save the image to a temporary file
+    temp_img_path = os.path.join(tempfile.gettempdir(), "temp_avatar_input.png")
+    cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    
+    result = run_avatar_script(temp_img_path, "image")
+    os.remove(temp_img_path)  # Clean up temporary file
+    return result
+
+
+def create_avatar_video(video_path: str, max_dimension: int) -> Dict[str, Any]:
+    if not video_path:
+        return {"error": "No video provided for avatar creation"}
+    
+    # For video, the path is already a file path, no need to save temporarily
+    result = run_avatar_script(video_path, "video")
+    return result
+
+
+def create_avatar_webcam(frame: np.ndarray) -> Dict[str, Any]:
+    if frame is None:
+        return {"error": "No frame provided for avatar creation"}
+    
+    # Save the webcam frame to a temporary file
+    temp_frame_path = os.path.join(tempfile.gettempdir(), "temp_webcam_avatar_input.png")
+    cv2.imwrite(temp_frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    
+    result = run_avatar_script(temp_frame_path, "webcam_frame")
+    os.remove(temp_frame_path)  # Clean up temporary file
+    return result
 SHOWING_FACE = 1
 
 ERROR_MESSAGE_MORE_ONE_FACE = "There are more than one face or none \
@@ -232,7 +296,13 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                 inputs=[land_img_in],
                 outputs=[land_img_out, land_img_json],
             )
-
+            
+            create_avatar_img_btn = gr.Button("Create avatar")
+            create_avatar_img_btn.click(
+                fn=create_avatar_image,
+                inputs=[land_img_in],
+                outputs=[land_img_json],
+            )
         with gr.Tab("Video Landmarker"):
             with gr.Row():
                 land_vid_in = gr.Video(label="Video (mp4, mov, webm)")
@@ -245,6 +315,12 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                 fn=process_landmarker_video,
                 inputs=[land_vid_in, land_max_dim],
                 outputs=[land_vid_out, land_vid_json],
+            )
+            create_avatar_vid_btn = gr.Button("Create avatar")
+            create_avatar_vid_btn.click(
+                fn=create_avatar_video,
+                inputs=[land_vid_in, land_max_dim],
+                outputs=[land_vid_json],
             )
         
         with gr.Tab("Webcam Landmarker"):
@@ -275,6 +351,12 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             # )
             clear_manual_btn.click(clear_components, inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label])
 
+            create_avatar_webcam_btn = gr.Button("Create avatar")
+            create_avatar_webcam_btn.click(
+                fn=create_avatar_webcam,
+                inputs=[land_cam_in],
+                outputs=[land_cam_json],
+            )
 
     with gr.Tab("Visualizador 3D"):
         gr.Markdown(
