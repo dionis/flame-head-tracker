@@ -16,7 +16,11 @@ from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarke
 
 analyzer = FaceAnalyzer()
 landmarker_analyzer = FaceLandmarkerAnalyzer()
+
 AVATAR_SCRIPT_PATH = "create_avatar.py"
+AVATAR_SCRIPT_PATH = "../claude_genereta_arkit_flame_meshes.py"
+
+
 AVATAR_OUTPUT_DIR = "generated_avatars"
 os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 

@@ -2,6 +2,7 @@
 import os, json, sys, numpy as np, torch
 from pathlib import Path
 from PIL import Image
+import glob
 import subprocess
 import cv2
 import shutil
@@ -718,14 +719,18 @@ def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = 
         path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
         #bpy.ops.import_scene.obj(filepath=str(path))
 
-        ################################################## 
+        ######################################################## 
         #
-        #bpy.ops.wm.obj_import(filepath=str(path))
+        bpy.ops.wm.obj_import(filepath=str(path))
         #
-        ###################################################
-        
-        bpy.ops.wm.obj_import(filepath=str(path_detailed))
-        
+        ########################################################
+        #
+        ## Load from DECA detailed obj file
+        #
+        #bpy.ops.wm.obj_import(filepath=str(path_detailed))
+        #
+        #
+        ########################################################
 
         poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
         # Add shape key from the poser geometry
@@ -863,7 +868,23 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
 
 if __name__ == "__main__":
     #Get 3D information and convert to 52 Blandshep from Arkit
-    neutral_obj_address, texture_file_dir, texture_filename = main_another_example()
+    directory_address_neutral_image = "neutral_images"
+    direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
+    
+    png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+    
+    # Validar si existe un archivo PNG en el directorio y obtener su dirección
+    png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+    
+    if png_files:
+        print(f"PNG encontrado: {png_files[0]}")
+        direccion_png = png_files[0]
+        print(f"The neutral images is in address: {direccion_png}")
+    else:
+        print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
+        direccion_png = None
+    
+    neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    
    #Create fbx file with information
     export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
