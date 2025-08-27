@@ -1,0 +1,104 @@
+import os
+import shutil
+import fsspec
+import gcsfs
+import argparse
+
+def _norm_local_path(p: str) -> str:
+    # Make sure local directories exist for downloads
+    os.makedirs(os.path.dirname(os.path.abspath(p)), exist_ok=True)
+    return p
+
+def upload_local_to_gcs(local_path: str, gcs_url: str, *, token=None, project=None, overwrite=True):
+    """
+    Upload a single local file from the Lightning workspace to GCS.
+    gcs_url: e.g., 'gcs://my-bucket/path/to/file.bin'
+    token: None (ADC) | 'cloud' | '/path/to/service_account.json' | dict creds
+    """
+    fs = gcsfs.GCSFileSystem(token=token, project=project)  # picks up ADC if token=None
+    if not overwrite and fs.exists(fs._strip_protocol(gcs_url)):
+        raise FileExistsError(f"Destination exists: {gcs_url}")
+    fs.put(local_path, fs._strip_protocol(gcs_url))  # local -> GCS   (streams)
+    return gcs_url
+
+def download_gcs_to_local(gcs_url: str, local_path: str, *, token=None, project=None, overwrite=True):
+    """
+    Download a single GCS object to a local path in the Lightning workspace.
+    """
+    local_path = _norm_local_path(local_path)
+    if not overwrite and os.path.exists(local_path):
+        raise FileExistsError(f"Destination exists: {local_path}")
+    fs = gcsfs.GCSFileSystem(token=token, project=project)
+    fs.get(fs._strip_protocol(gcs_url), local_path)         # GCS -> local (streams)
+    return local_path
+
+def copy_url_to_url(src_url: str, dst_url: str, *, src_storage_options=None, dst_storage_options=None, overwrite=True, chunk_size=8<<20):
+    """
+    Generic fsspec-to-fsspec copy (works for local://, gcs://, s3://, etc.).
+    Uses streaming IO, requires both filesystems to be installed.
+    """
+    src_storage_options = src_storage_options or {}
+    dst_storage_options = dst_storage_options or {}
+
+    # Resolve each side to its filesystem + path components
+    src_fs, src_path = fsspec.core.url_to_fs(src_url, **src_storage_options)
+    dst_fs, dst_path = fsspec.core.url_to_fs(dst_url, **dst_storage_options)
+
+    if not overwrite and dst_fs.exists(dst_path):
+        raise FileExistsError(f"Destination exists: {dst_url}")
+
+    # Ensure parent directories if the target FS supports mkdir
+    try:
+        dst_dir = dst_path.rsplit("/", 1)[0]
+        if dst_dir:
+            dst_fs.makedirs(dst_dir, exist_ok=True)
+    except Exception:
+        pass  # not all FSes need/allow mkdirs
+
+    # Stream data without loading whole file into memory
+    with src_fs.open(src_path, "rb") as r, dst_fs.open(dst_path, "wb") as w:
+        shutil.copyfileobj(r, w, length=chunk_size)
+
+    return dst_url
+
+
+
+if __name__ == "__main__":
+    # Ejemplo de uso por CLI:
+    # Para subir un archivo local a GCS:
+    # python process_file_to_from_googlesore.py ./archivo.txt gcs://mi-bucket/carpeta/archivo.txt --direction upload --gcp_project MiProyecto --gcp_key ./mi_clave.json --overwrite
+
+    # Para descargar un archivo de GCS a local:
+    # python process_file_to_from_googlesore.py ./archivo_descargado.txt gcs://mi-bucket/carpeta/archivo.txt --direction download --gcp_project MiProyecto --gcp_key ./mi_clave.json --overwrite
+   
+    parser = argparse.ArgumentParser(description="Upload or download files between local and GCS.")
+    parser.add_argument("local_path", help="Ruta local del archivo de entrada o salida")
+    parser.add_argument("gcs_url", help="URL de GCS de destino o fuente (ej: gcs://bucket/path/file)")
+    parser.add_argument("--direction", choices=["upload", "download"], required=True,
+                        help="Indica si subir (upload) o descargar (download) el archivo")
+    parser.add_argument("--gcp_project", default="BrainAixCloneFactory", help="ID del proyecto de GCP")
+    parser.add_argument("--gcp_key", default="gcp_project_key.json", help="Ruta al archivo JSON de credenciales de GCP")
+    parser.add_argument("--overwrite", action="store_true", help="Sobrescribir si el archivo ya existe")
+
+    args = parser.parse_args()
+
+    assert os.path.exists(args.gcp_key), f"Missing GCP JSON key: {args.gcp_key}"
+
+    if args.direction == "upload":
+        upload_local_to_gcs(
+            local_path = args.local_path,
+            gcs_url = args.gcs_url,
+            token = args.gcp_key,
+            project = args.gcp_project,
+            overwrite = args.overwrite
+        )
+        print(f"Archivo subido de {args.local_path} a {args.gcs_url}")
+    else:
+        download_gcs_to_local(
+            gcs_url=args.gcs_url,
+            local_path=args.local_path,
+            token=args.gcp_key,
+            project=args.gcp_project,
+            overwrite=args.overwrite
+        )
+        print(f"Archivo descargado de {args.gcs_url} a {args.local_path}")

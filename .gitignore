@@ -41,4 +41,4 @@ models/uv_face_mask.png
 models/ear_landmarker.pth
 
 out_arkit_flame/*.*
-
+gcp_project_key.json
