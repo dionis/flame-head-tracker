@@ -93,6 +93,7 @@ def create_avatar_from_transformed_image(image: np.ndarray) -> Dict[str, Any]:
 
 DEFAULT_3D_MODEL_PATH = "../out_arkit_flame/neutral.obj"
 
+
 def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
     try:
         
