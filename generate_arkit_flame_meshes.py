@@ -400,6 +400,7 @@ def main_another_example(
 
 
     os.makedirs(out_dir, exist_ok=True)
+    print(f" Image Path : {img_path}")
     file_name = os.path.basename(img_path)
     file_name, _ = os.path.splitext(file_name)
 
@@ -882,7 +883,7 @@ if __name__ == "__main__":
         print(f"The neutral images is in address: {direccion_png}")
     else:
         print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-        direccion_png = None
+        #direccion_png = None
     
     neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    

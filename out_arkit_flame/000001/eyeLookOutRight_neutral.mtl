@@ -1,0 +1,3 @@
+newmtl FaceTexture
+map_Kd eyeLookOutRight_neutral.png
+disp out_arkit_flame/000001/eyeLookOutRight_neutral_normals.png

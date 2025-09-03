@@ -1,0 +1,3 @@
+newmtl FaceTexture
+map_Kd noseSneerRight_neutral.png
+disp out_arkit_flame/000001/noseSneerRight_neutral_normals.png

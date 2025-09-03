@@ -1,0 +1,3 @@
+newmtl FaceTexture
+map_Kd mouthLowerDownLeft_neutral.png
+disp out_arkit_flame/000001/mouthLowerDownLeft_neutral_normals.png
