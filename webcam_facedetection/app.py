@@ -91,7 +91,7 @@ def create_avatar_from_transformed_image(image: np.ndarray) -> Dict[str, Any]:
     os.remove(temp_img_path)
     return result
 
-DEFAULT_3D_MODEL_PATH = "../out_arkit_flame/neutral.obj"
+DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 
 
 def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
