@@ -91,7 +91,7 @@ def create_avatar_from_transformed_image(image: np.ndarray) -> Dict[str, Any]:
     os.remove(temp_img_path)
     return result
 
-
+DEFAULT_3D_MODEL_PATH = "../out_arkit_flame/neutral.obj"
 
 def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
     try:
@@ -440,8 +440,15 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             """
         )
         with gr.Row():
-            model_in = gr.Model3D(label="3D model", interactive=True)
-            # No explicit output needed for gr.Model3D as it's a viewer
+            model_in = gr.Model3D(
+                label="3D model",
+                interactive=True,
+                value=DEFAULT_3D_MODEL_PATH if os.path.exists(DEFAULT_3D_MODEL_PATH) else None
+            )
+            # Add a file upload component for users to upload their own 3D models
+            file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
+
+            file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
 
     with gr.Tab("Image Transformer"):
         with gr.Row():
