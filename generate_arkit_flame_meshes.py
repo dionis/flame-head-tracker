@@ -401,6 +401,7 @@ def main_another_example(
 
 
     os.makedirs(out_dir, exist_ok=True)
+    print(f" Image Path : {img_path}")
     file_name = os.path.basename(img_path)
     file_name, _ = os.path.splitext(file_name)
 

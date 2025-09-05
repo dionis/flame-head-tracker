@@ -467,15 +467,18 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             """
         )
         with gr.Row():
+            if os.path.exists(DEFAULT_3D_MODEL_PATH):
+              print("3D model exist")
+
             model_in = gr.Model3D(
                 label="3D model",
                 interactive=True,
                 value=DEFAULT_3D_MODEL_PATH if os.path.exists(DEFAULT_3D_MODEL_PATH) else None
             )
             # Add a file upload component for users to upload their own 3D models
-            file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
+            #file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
 
-            file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
+            #file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
 
     with gr.Tab("Image Transformer"):
         with gr.Row():
