@@ -78,6 +78,7 @@ if sys.version_info < (3, 11):
 import sys
 sys.path.append('mediapipe-blendshapes-to-flame')
 from mp_2_flame import MP_2_FLAME
+import argparse
 
 # ARKit order required by NVIDIA ACE (52)
 ARKIT_ORDER = [
@@ -867,12 +868,26 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
         return None
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description="Process 3D avatar generation parameters.")
+    parser.add_argument("--input_path", type=str, required=False, help="Path to the input file (image or video)")
+    parser.add_argument("--input_type", type=str, required=False, choices=["image", "video"], help="Type of input: image or video")
+    parser.add_argument("--output_dir", type=str, required=False, help="Directory to save the output")
+
+    args = parser.parse_args()
+
+    input_path = args.input_path
+    input_type = args.input_type
+    AVATAR_OUTPUT_DIR = args.output_dir
+
+    print(f"Input path: {input_path}")
+    print(f"Input type: {input_type}")
+    print(f"Output directory: {AVATAR_OUTPUT_DIR}")
+
     #Get 3D information and convert to 52 Blandshep from Arkit
     directory_address_neutral_image = "neutral_images"
     direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
-    
-    png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
-    
+       
     # Validar si existe un archivo PNG en el directorio y obtener su dirección
     png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
     
@@ -882,7 +897,10 @@ if __name__ == "__main__":
         print(f"The neutral images is in address: {direccion_png}")
     else:
         print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-        direccion_png = None
+        if os.path.exists(input_path):
+              png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+              print(f"PNG encontrado: {png_files[0]}")
+              direccion_png = png_files[0]
     
     neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    

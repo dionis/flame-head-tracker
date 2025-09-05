@@ -18,14 +18,17 @@ analyzer = FaceAnalyzer()
 landmarker_analyzer = FaceLandmarkerAnalyzer()
 
 AVATAR_SCRIPT_PATH = "create_avatar.py"
-AVATAR_SCRIPT_PATH = "../claude_genereta_arkit_flame_meshes.py"
+AVATAR_SCRIPT_PATH = "/teamspace/studios/this_studio/flame-head-tracker/claude_genereta_arkit_flame_meshes.py"
+
+NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/neutral_images"
+
+DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 
 
 AVATAR_OUTPUT_DIR = "generated_avatars"
 os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 
 MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: '
-
 
 def transform_image_with_gemini(image: np.ndarray, prompt: str) -> Tuple[np.ndarray, Dict[str, Any]]:
     if GOOGLE_API_KEY is None:
@@ -84,21 +87,30 @@ def create_avatar_from_transformed_image(image: np.ndarray) -> Dict[str, Any]:
     if image is None:
         return {"error": "No transformed image to create avatar from"}
     
-    temp_img_path = os.path.join(tempfile.gettempdir(), "temp_transformed_avatar_input.png")
-    cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+     # Remove existing files in the output directory
+    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+         list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+         if len(list_of_files) == 1: #Only a face imafes for get information
+            output_dir = list_of_files[0]
+            temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
+           
+    elif image is not None:
+        temp_img_path = os.path.join(tempfile.gettempdir(), "temp_transformed_avatar_input.png")
+        cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     
     result = run_avatar_script(temp_img_path, "transformed_image")
-    os.remove(temp_img_path)
+    #os.remove(temp_img_path)
     return result
 
-DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 
 
 def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
     try:
         
-        if os.path.exists(AVATAR_OUTPUT_DIR):
-          return {"error": f"{MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST}{input_path}"} 
+        if not os.path.exists(AVATAR_OUTPUT_DIR):
+          os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
+        if not os.path.exists(input_path):
+          return {"error": f"{MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST}{AVATAR_OUTPUT_DIR}"} 
         
         command = [
             "python",
@@ -123,8 +135,14 @@ def create_avatar_image(image: np.ndarray) -> Dict[str, Any]:
         return {"error": "No image provided for avatar creation"}
     
     # Save the image to a temporary file
-    temp_img_path = os.path.join(tempfile.gettempdir(), "temp_avatar_input.png")
-    cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+         list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+         if len(list_of_files) == 1: #Only a face imafes for get information
+            output_dir = list_of_files[0]
+            temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
+    elif image is not None:
+        temp_img_path = os.path.join(tempfile.gettempdir(), "temp_avatar_input.png")
+        cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     
     result = run_avatar_script(temp_img_path, "image")
     os.remove(temp_img_path)  # Clean up temporary file
@@ -134,6 +152,8 @@ def create_avatar_image(image: np.ndarray) -> Dict[str, Any]:
 def create_avatar_video(video_path: str, max_dimension: int) -> Dict[str, Any]:
     if not video_path:
         return {"error": "No video provided for avatar creation"}
+    
+    
     
     # For video, the path is already a file path, no need to save temporarily
     result = run_avatar_script(video_path, "video")
@@ -145,8 +165,14 @@ def create_avatar_webcam(frame: np.ndarray) -> Dict[str, Any]:
         return {"error": "No frame provided for avatar creation"}
     
     # Save the webcam frame to a temporary file
-    temp_frame_path = os.path.join(tempfile.gettempdir(), "temp_webcam_avatar_input.png")
-    cv2.imwrite(temp_frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+         list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+         if len(list_of_files) == 1: #Only a face imafes for get information
+            output_dir = list_of_files[0]
+            temp_frame_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
+    else :
+       temp_frame_path = os.path.join(tempfile.gettempdir(), "temp_webcam_avatar_input.png")
+       cv2.imwrite(temp_frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
     
     result = run_avatar_script(temp_frame_path, "webcam_frame")
     os.remove(temp_frame_path)  # Clean up temporary file
