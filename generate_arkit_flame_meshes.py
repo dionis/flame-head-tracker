@@ -898,10 +898,14 @@ if __name__ == "__main__":
         print(f"The neutral images is in address: {direccion_png}")
     else:
         print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-        if os.path.exists(input_path):
-              png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+        if input_path != None and os.path.exists(input_path):
+              png_files = glob.glob(os.path.join(input_path, "*.jpg"))
               print(f"PNG encontrado: {png_files[0]}")
               direccion_png = png_files[0]
+        # elif os.path.exists(direccion_png):
+        #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
+        #      direccion_png = png_files[0]
+
     
     neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    

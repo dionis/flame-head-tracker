@@ -42,3 +42,4 @@ models/ear_landmarker.pth
 
 out_arkit_flame/*.*
 gcp_project_key.json
+out_arkit_flame/*
