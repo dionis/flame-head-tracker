@@ -30,7 +30,7 @@ gdown
 ninja
 trimesh
 DracoPy
-google-generativeai
+google-genai
 gradio
 fsspec[gcs]
 gcsfs

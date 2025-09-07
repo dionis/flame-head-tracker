@@ -125,8 +125,10 @@ class FaceLandmarkerAnalyzer:
             # Generate a unique filename for the neutral image
             timestamp = int(cv2.getTickCount() / cv2.getTickFrequency())
             filename = f"neutral_anotated_face_{timestamp}.jpg"
+            print("<=== Output data to show ===>")
             output_dir =  "neutral_images" if not os.path.exists(self.path_to_neutral_image) else self.neutral_image_directory
             os.makedirs(output_dir, exist_ok=True)
+            print(f"<=== Create file in Output data to show {output_dir} ===>")
             
             # Remove existing files in the output directory
             for f in os.listdir(output_dir):
