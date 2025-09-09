@@ -28,7 +28,11 @@ class FaceLandmarkerResult(NamedTuple):
 
 
 class FaceLandmarkerAnalyzer:
-    def __init__(self, model_path: str = f"models{os.sep}face_landmarker_v2_with_blendshapes.task", neutral_image_directory = ''):
+    def __init__(
+        self, 
+        model_path: str = f"models{os.sep}face_landmarker_v2_with_blendshapes.task", 
+        neutral_image_directory = 'neutral_images'
+    ):
         self.model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), model_path)
          
         self.MAX_NUMBER_FACE = 50 #Max number of face for detecting
@@ -41,8 +45,8 @@ class FaceLandmarkerAnalyzer:
         self.threshold = 0.5
         
         self.path_to_neutral_image = neutral_image_directory
-        #float(1/5)
-       
+        
+        self.NEUTRAL_IMAGES_DIRECTORY = "neutral_images"
 
 
 
@@ -123,12 +127,15 @@ class FaceLandmarkerAnalyzer:
 
         if is_neutral_face and len(face_landmarks_list) == 1:
             # Generate a unique filename for the neutral image
-            timestamp = int(cv2.getTickCount() / cv2.getTickFrequency())
-            filename = f"neutral_anotated_face_{timestamp}.jpg"
-            print("<=== Output data to show ===>")
-            output_dir =  "neutral_images" if not os.path.exists(self.path_to_neutral_image) else self.neutral_image_directory
+            random_filename = int(cv2.getTickCount() / cv2.getTickFrequency())
+            
+            if self.user_image_filename and self.user_image_filename != '':
+                random_filename = self.user_image_filename
+            
+            filename = f"neutral_anotated_face_{random_filename}.jpg"
+
+            output_dir =  self.NEUTRAL_IMAGES_DIRECTORY  if not os.path.exists(self.path_to_neutral_image) else self.neutral_image_directory
             os.makedirs(output_dir, exist_ok=True)
-            print(f"<=== Create file in Output data to show {output_dir} ===>")
             
             # Remove existing files in the output directory
             for f in os.listdir(output_dir):
@@ -137,7 +144,7 @@ class FaceLandmarkerAnalyzer:
             output_path = os.path.join(output_dir, filename)
             cv2.imwrite(output_path, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
             
-            filename = f"neutral_face_{timestamp}.jpg"
+            filename = f"neutral_face_{random_filename}.jpg"
             output_path = os.path.join(output_dir, filename)
             cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
             print(f"Saved neutral face image to {output_path}")

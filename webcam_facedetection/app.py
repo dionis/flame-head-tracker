@@ -318,7 +318,8 @@ def process_landmarker_image(
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     if image is None:
         return None, {"error": "No image provided"}
-
+    
+    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
     result = landmarker_analyzer.analyze_image(image=image)
     
     SHOWING_FACE = len(result.face_landmarks)
@@ -341,6 +342,7 @@ def process_landmarker_video(
     if not video_path:
         return None, {"error": "No video provided"}
 
+    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
     output_path, aggregate = landmarker_analyzer.process_video_file(
         input_path=video_path, maximum_frame_dimension=max_dimension
     )
@@ -367,6 +369,8 @@ def process_landmarker_stream(
 ) -> Tuple[np.ndarray, Dict[str, Any], bool]:
     if frame is None:
         return None, {"error": "No frame"}, False
+    
+    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
 
     result = landmarker_analyzer.analyze_image(image=frame)
     
