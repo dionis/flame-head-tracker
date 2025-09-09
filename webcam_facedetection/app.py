@@ -38,7 +38,7 @@ AVATAR_SCRIPT_PATH = "flame-head-tracker/generate_arkit_flame_meshes.py"
 
 NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/_neutral_images"
 NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/neutral_images"
-
+DEFAULT_3D_MODEL_PATH_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/"
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face_8486.jpg"
 
@@ -190,8 +190,9 @@ def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Re
     else: #Only a face imafes for get information  
         output_dir = ""
         for file_name in list_of_files:
-            if 'neutral_face':
+            if f"neutral_face_{session_id}" in file_name:
                 output_dir = file_name
+                break
             
         if output_dir == '':
             raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
@@ -211,8 +212,9 @@ def create_avatar_video(video_path: str, max_dimension: int, session_id: Optiona
     else: #Only a face imafes for get information
         output_dir = ""
         for file_name in list_of_files:
-            if 'neutral_face':
+             if f"neutral_face_{session_id}" in file_name:
                 output_dir = file_name
+                break
         
         if output_dir == '':
             raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
@@ -236,8 +238,9 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
          if len(list_of_files) >= 1: #Only a face imafes for get information
             output_dir = ""
             for file_name in list_of_files:
-              if f"neutral_face_{req.session_hash}_{session_id}" in file_name:
+              if f"neutral_face_{session_id}" in file_name:
                 output_dir = file_name
+                break
            
             if output_dir == '':
               raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
@@ -320,7 +323,7 @@ def process_landmarker_image(
     if image is None:
         return None, {"error": "No image provided"}
     
-    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
+    landmarker_analyzer.user_image_filename = f"{session_id}"
     result = landmarker_analyzer.analyze_image(image=image)
     
     SHOWING_FACE = len(result.face_landmarks)
@@ -343,7 +346,7 @@ def process_landmarker_video(
     if not video_path:
         return None, {"error": "No video provided"}
 
-    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
+    landmarker_analyzer.user_image_filename = f"{session_id}"
     output_path, aggregate = landmarker_analyzer.process_video_file(
         input_path=video_path, maximum_frame_dimension=max_dimension
     )
@@ -371,7 +374,7 @@ def process_landmarker_stream(
     if frame is None:
         return None, {"error": "No frame"}, False
     
-    landmarker_analyzer.user_image_filename = f"{req.session_hash}_{session_id}"
+    landmarker_analyzer.user_image_filename = f"{session_id}"
 
     result = landmarker_analyzer.analyze_image(image=frame)
     
@@ -389,11 +392,24 @@ def process_landmarker_stream(
 def clear_components():
     return None, {}, None, None
 
-def delete_directory(req: gr.Request):
-    if not req.username:
+def delete_directory(req: gr.Request):    
+    
+    if not req.session_hash:
         return
-    user_dir: Path = current_dir / str(req.session_hash)
-    shutil.rmtree(str(user_dir))
+    
+    for f in os.listdir(NEUTRAL_IMAGES_ADDRESS):
+        if req.session_hash in f:
+            print("Image create in session will be deleted")
+            os.remove(os.path.join(NEUTRAL_IMAGES_ADDRESS, f))
+            
+    for f in os.listdir(DEFAULT_3D_MODEL_PATH_ADDRESS):
+        if req.session_hash in f:
+            print("3D model file create in session will be deleted")
+            os.remove(os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, f))
+    
+    #user_dir: Path = current_dir / str(req.session_hash)
+    #shutil.rmtree(str(user_dir))
+    #os.remove()
     
     
 def start_session(session_id, request: gr.Request):
