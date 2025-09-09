@@ -414,7 +414,7 @@ def delete_directory(req: gr.Request):
     
 def start_session(session_id, request: gr.Request):
     if session_id is None:
-        session_id =  f"{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
+        session_id =  f"_{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
     return f"Session ID: {session_id}", session_id
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
