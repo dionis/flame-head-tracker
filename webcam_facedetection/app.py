@@ -404,6 +404,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
    
     session_id = gr.State()
     output = gr.Textbox(label="Session ID")
+    demo.load(start_session, inputs=[session_id], outputs=[output, session_id])
     # gr.Markdown(
     #     """
     #     ### Face Detection with MediaPipe + Gradio
