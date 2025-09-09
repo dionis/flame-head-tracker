@@ -47,6 +47,7 @@ class FaceLandmarkerAnalyzer:
         self.path_to_neutral_image = neutral_image_directory
         
         self.NEUTRAL_IMAGES_DIRECTORY = "neutral_images"
+        self.neutral_image_directory =  self.NEUTRAL_IMAGES_DIRECTORY 
 
 
 
