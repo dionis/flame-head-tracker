@@ -893,18 +893,21 @@ if __name__ == "__main__":
     direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
        
     # Validar si existe un archivo PNG en el directorio y obtener su dirección
-    png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
-    
-    if png_files:
-        print(f"PNG encontrado: {png_files[0]}")
-        direccion_png = png_files[0]
-        print(f"The neutral images is in address: {direccion_png}")
-    else:
-        print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-        if input_path != None and os.path.exists(input_path):
+   
+    if input_path != None and os.path.exists(input_path):
               png_files = glob.glob(os.path.join(input_path, "*.jpg"))
               print(f"PNG encontrado: {png_files}")
               direccion_png = input_path
+    else:
+         png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+         if png_files:
+            print(f"PNG encontrado: {png_files[0]}")
+            direccion_png = png_files[0]
+            print(f"The neutral images is in address: {direccion_png}")
+         else:
+            print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
+            exit(1)
+ 
         # elif os.path.exists(direccion_png):
         #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
         #      direccion_png = png_files[0]
