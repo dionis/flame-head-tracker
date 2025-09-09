@@ -534,9 +534,11 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                     image_mode="RGB",
                 )
                 land_cam_out = gr.Image(type="numpy", label="Salida", interactive=False)
+                
+            land_single_face_label = gr.Label(label="Single Face Detected", value="No", show_label=True)
+          
             land_cam_json = gr.JSON(label="Métricas (en vivo)")
             #land_neutral_label = gr.Label(label="Neutral Face Detected", value="No", show_label=True)
-            land_single_face_label = gr.Label(label="Single Face Detected", value="No", show_label=True)
             
             land_cam_in.stream(
                 fn=process_landmarker_stream,
