@@ -11,6 +11,7 @@ from google import genai
 from PIL import Image
 from io import BytesIO
 import uuid
+import shutil
 from utils.face_analyzer import FaceAnalyzer, FaceAnalysisResult
 from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
 import random
