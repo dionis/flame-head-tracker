@@ -398,15 +398,15 @@ def delete_directory(req: gr.Request):
     
 def start_session(session_id, request: gr.Request):
     if session_id is None:
-        session_id = str(uuid.uuid4())  # Crear un ID único
-    return f"Session ID: {session_id}", session_id, request
+        session_id =  f"{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
+    return f"Session ID: {session_id}", session_id
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
     session_id = gr.State()
     output = gr.Textbox(label="Session ID")
     request = None
-    demo.load(start_session, inputs=[session_id], outputs=[output, session_id, request])
+    demo.load(start_session, inputs=[session_id], outputs=[output, session_id])
     # gr.Markdown(
     #     """
     #     ### Face Detection with MediaPipe + Gradio
@@ -590,7 +590,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
      
         with gr.Row():
             with gr.Column():
-               neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{request.session_hash}_{session_id}.jpg"
+               neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{session_id}.jpg"
                print ("Neutral image path for transform => ", neutral_image_path)
               
                img_transform_in = gr.Image(
