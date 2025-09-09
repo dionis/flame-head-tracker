@@ -417,6 +417,23 @@ def start_session(session_id, request: gr.Request):
         session_id =  f"_{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
     return f"Session ID: {session_id}", session_id
 
+def check_neutral_image_exist(session_id: str) -> bool:
+    if not session_id:
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    
+    if not os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    
+    list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+    
+    if len(list_of_files) == 0:
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    else: #Only a face imafes for get information
+        for file_name in list_of_files:
+             if f"neutral_face_{session_id}" in file_name:
+                return True
+    raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
     session_id = gr.State()
@@ -489,6 +506,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
     #     )
 
     #     clear_manual_btn.click(clear_components, inputs=[], outputs=[cam_out, cam_json])
+
 
 
     with gr.Tab("Face Landmarker") as faceLandmarker_tab:           
@@ -602,7 +620,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             #file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
 
     with gr.Tab("Image Transformer") as imageTransformer_tab:
-        #imageTransformer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+        imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[])  
      
         with gr.Row():
             with gr.Column():
@@ -618,8 +636,9 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
-               if not os.path.exists(neutral_image_path):
-                  raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+            #    if not os.path.exists(neutral_image_path):
+            #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+              
             with gr.Column():        
                 img_transform_out = gr.Image(type="numpy", label="Transformed Image", interactive=False)
 
