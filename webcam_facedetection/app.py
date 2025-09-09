@@ -431,7 +431,7 @@ def check_neutral_image_exist(session_id: str) -> bool:
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
-                return True
+                return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
@@ -632,7 +632,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                         label ="Input Image", 
                                         sources=["upload", "clipboard"], 
                                         image_mode="RGB",
-                                        value = neutral_image_path if os.path.exists(neutral_image_path) else None,
+                                        value = check_neutral_image_exist(session_id),
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
