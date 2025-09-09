@@ -396,16 +396,17 @@ def delete_directory(req: gr.Request):
     shutil.rmtree(str(user_dir))
     
     
-def start_session(session_id):
+def start_session(session_id, request: gr.Request):
     if session_id is None:
         session_id = str(uuid.uuid4())  # Crear un ID único
-    return f"Session ID: {session_id}", session_id
+    return f"Session ID: {session_id}", session_id, request
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
     session_id = gr.State()
     output = gr.Textbox(label="Session ID")
-    demo.load(start_session, inputs=[session_id], outputs=[output, session_id])
+    request = None
+    demo.load(start_session, inputs=[session_id], outputs=[output, session_id, request])
     # gr.Markdown(
     #     """
     #     ### Face Detection with MediaPipe + Gradio
@@ -474,9 +475,8 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
     #     clear_manual_btn.click(clear_components, inputs=[], outputs=[cam_out, cam_json])
 
 
-    with gr.Tab("Face Landmarker") as faceLandmarker_tab:   
-        
-        faceLandmarker_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+    with gr.Tab("Face Landmarker") as faceLandmarker_tab:           
+        #faceLandmarker_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
              
         gr.Markdown(
             """
@@ -562,7 +562,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        threeDVisualizer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+        #threeDVisualizer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
      
         gr.Markdown(
             """
@@ -586,18 +586,24 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             #file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
 
     with gr.Tab("Image Transformer") as imageTransformer_tab:
-        imageTransformer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+        #imageTransformer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
      
         with gr.Row():
             with gr.Column():
+               neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{request.session_hash}_{session_id}.jpg"
+               print ("Neutral image path for transform => ", neutral_image_path)
+              
                img_transform_in = gr.Image(
                                         type ="numpy", 
                                         label ="Input Image", 
                                         sources=["upload", "clipboard"], 
                                         image_mode="RGB",
-                                        value = DEFAULT_PROCESSIG_IMAGE,
+                                        value = neutral_image_path if os.path.exists(neutral_image_path) else None,
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
+               
+               if not os.path.exists(neutral_image_path):
+                  raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
             with gr.Column():        
                 img_transform_out = gr.Image(type="numpy", label="Transformed Image", interactive=False)
 
