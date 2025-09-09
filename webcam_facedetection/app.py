@@ -9,7 +9,7 @@ import subprocess
 import json
 import google.generativeai as genai
 from PIL import Image
-
+import uuid
 from utils.face_analyzer import FaceAnalyzer, FaceAnalysisResult
 from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
 
@@ -65,7 +65,7 @@ def transform_image_with_gemini(image: np.ndarray, prompt: str) -> Tuple[np.ndar
     except Exception as e:
         return None, {"error": f"Error transforming image with Gemini: {e}"}
 
-def create_avatar_from_transformed_image(image: np.ndarray) -> Dict[str, Any]:
+def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
     if image is None:
         return {"error": "No transformed image to create avatar from"}
     
@@ -111,7 +111,7 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         return {"error": f"Avatar script not found at {AVATAR_SCRIPT_PATH}"}
 
 
-def create_avatar_image(image: np.ndarray) -> Dict[str, Any]:
+def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
     if image is None:
         return {"error": "No image provided for avatar creation"}
     
@@ -130,7 +130,7 @@ def create_avatar_image(image: np.ndarray) -> Dict[str, Any]:
     return result
 
 
-def create_avatar_video(video_path: str, max_dimension: int) -> Dict[str, Any]:
+def create_avatar_video(video_path: str, max_dimension: int, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
     if not video_path:
         return {"error": "No video provided for avatar creation"}
     
@@ -141,7 +141,7 @@ def create_avatar_video(video_path: str, max_dimension: int) -> Dict[str, Any]:
     return result
 
 
-def create_avatar_webcam(frame: np.ndarray) -> Dict[str, Any]:
+def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.Request ) -> Dict[str, Any]:
     if frame is None:
         return {"error": "No frame provided for avatar creation"}
     
@@ -222,6 +222,8 @@ def process_stream(
 
 def process_landmarker_image(
     image: np.ndarray,
+    session_id: Optional[str], 
+    req: gr.Request
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     if image is None:
         return None, {"error": "No image provided"}
@@ -242,6 +244,8 @@ def process_landmarker_image(
 def process_landmarker_video(
     video_path: str,
     max_dimension: int,
+    session_id: Optional[str], 
+    req: gr.Request
 ) -> Tuple[Optional[str], Dict[str, Any]]:
     if not video_path:
         return None, {"error": "No video provided"}
@@ -267,6 +271,8 @@ def process_landmarker_video(
 
 def process_landmarker_stream(
     frame: np.ndarray,
+    session_id: Optional[str],
+    req: gr.Request
 ) -> Tuple[np.ndarray, Dict[str, Any], bool]:
     if frame is None:
         return None, {"error": "No frame"}, False
@@ -287,7 +293,22 @@ def process_landmarker_stream(
 def clear_components():
     return None, {}, None, None
 
+def delete_directory(req: gr.Request):
+    if not req.username:
+        return
+    user_dir: Path = current_dir / str(req.session_hash)
+    shutil.rmtree(str(user_dir))
+    
+    
+def start_session(session_id):
+    if session_id is None:
+        session_id = str(uuid.uuid4())  # Crear un ID único
+    return f"Session ID: {session_id}", session_id
+
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
+   
+    session_id = gr.State()
+    output = gr.Textbox(label="Session ID")
     # gr.Markdown(
     #     """
     #     ### Face Detection with MediaPipe + Gradio
@@ -356,7 +377,9 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
     #     clear_manual_btn.click(clear_components, inputs=[], outputs=[cam_out, cam_json])
 
 
-    with gr.Tab("Face Landmarker"):     
+    with gr.Tab("Face Landmarker") as faceLandmarker_tab:   
+        
+        faceLandmarker_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
              
         gr.Markdown(
             """
@@ -374,14 +397,14 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             land_img_btn = gr.Button("Process image with Landmarker")
             land_img_btn.click(
                 fn=process_landmarker_image,
-                inputs=[land_img_in],
+                inputs=[land_img_in, session_id],
                 outputs=[land_img_out, land_img_json],
             )
             
             create_avatar_img_btn = gr.Button("Create avatar")
             create_avatar_img_btn.click(
                 fn=create_avatar_image,
-                inputs=[land_img_in],
+                inputs=[land_img_in, session_id],
                 outputs=[land_img_json],
             )
         with gr.Tab("Video Landmarker"):
@@ -394,13 +417,13 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             land_vid_btn = gr.Button("Process video with Landmarker")
             land_vid_btn.click(
                 fn=process_landmarker_video,
-                inputs=[land_vid_in, land_max_dim],
+                inputs=[land_vid_in, land_max_dim, session_id],
                 outputs=[land_vid_out, land_vid_json],
             )
             create_avatar_vid_btn = gr.Button("Create avatar")
             create_avatar_vid_btn.click(
                 fn=create_avatar_video,
-                inputs=[land_vid_in, land_max_dim],
+                inputs=[land_vid_in, land_max_dim, session_id],
                 outputs=[land_vid_json],
             )
         
@@ -422,7 +445,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             
             land_cam_in.stream(
                 fn=process_landmarker_stream,
-                inputs=[land_cam_in],
+                inputs=[land_cam_in, session_id],
                  outputs=[land_cam_out, land_cam_json,  land_single_face_label],
                 #outputs=[land_cam_out, land_cam_json, land_neutral_label, land_single_face_label],
             )
@@ -435,11 +458,13 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             create_avatar_webcam_btn = gr.Button("Create avatar")
             create_avatar_webcam_btn.click(
                 fn=create_avatar_webcam,
-                inputs=[land_cam_in],
+                inputs=[land_cam_in, session_id],
                 outputs=[land_cam_json],
             )
 
-    with gr.Tab("Visualizador 3D"):
+    with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
+        threeDVisualizer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+     
         gr.Markdown(
             """
             ### 3D Models Visualizer
@@ -461,7 +486,9 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
 
             #file_upload.upload(lambda x: x, inputs=file_upload, outputs=model_in)
 
-    with gr.Tab("Image Transformer"):
+    with gr.Tab("Image Transformer") as imageTransformer_tab:
+        imageTransformer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+     
         with gr.Row():
             with gr.Column():
                img_transform_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
@@ -485,7 +512,14 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             outputs=[img_transform_out],
         )
 
-
+    ## Free and delete user directory when the user close the application
+    #
+    # Bibliografy:
+    #       https://www.gradio.app/guides/resource-cleanup
+    #
+    #      Request object: https://www.gradio.app/docs/gradio/request
+    demo.unload(delete_directory)
+    
 if __name__ == "__main__":
     demo.launch(share=True)
 
