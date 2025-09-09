@@ -42,9 +42,8 @@ models/ear_landmarker.pth
 
 out_arkit_flame/*.*
 gcp_project_key.json
-<<<<<<< HEAD
 .env
-=======
 out_arkit_flame/*
 webcam_facedetection/.env
->>>>>>> 58e65066d84dde7927cc0f0a4a35e27fe2d2b574
+neutral_images/*
+_neutral_images/*
