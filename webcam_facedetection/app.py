@@ -37,6 +37,7 @@ AVATAR_SCRIPT_PATH = "/teamspace/studios/this_studio/flame-head-tracker/generate
 AVATAR_SCRIPT_PATH = "flame-head-tracker/generate_arkit_flame_meshes.py"
 
 NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/_neutral_images"
+NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/neutral_images"
 
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face_8486.jpg"
@@ -235,7 +236,7 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
          if len(list_of_files) >= 1: #Only a face imafes for get information
             output_dir = ""
             for file_name in list_of_files:
-              if 'neutral_face':
+              if f"neutral_face_{req.session_hash}_{session_id}" in file_name:
                 output_dir = file_name
            
             if output_dir == '':
