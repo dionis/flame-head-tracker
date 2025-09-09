@@ -1,4 +1,4 @@
-import os
+import os, sys
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -7,11 +7,15 @@ import gradio as gr
 import numpy as np
 import subprocess
 import json
-import google.generativeai as genai
+from google import genai
 from PIL import Image
+from io import BytesIO
 import uuid
 from utils.face_analyzer import FaceAnalyzer, FaceAnalysisResult
 from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
+import random
+sys.path.append("/teamspace/studios/this_studio/DECA")
+from decalib.datasets import datasets
 
 # --- NUEVO: Leer variables de entorno desde archivo .env si existe ---
 from dotenv import load_dotenv
@@ -19,68 +23,108 @@ load_dotenv()  # Esto cargará las variables de entorno desde un archivo .env si
 
 # --- NUEVO: Leer la API KEY de Gemini desde variable de entorno ---
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-if GOOGLE_API_KEY:
-    genai.configure(api_key=GOOGLE_API_KEY)
-else:
-    print("WARNING: GOOGLE_API_KEY environment variable not set. Gemini API calls will fail.")
+# if GOOGLE_API_KEY:
+#     genai.configure(api_key=GOOGLE_API_KEY)
+# else:
+#     print("WARNING: GOOGLE_API_KEY environment variable not set. Gemini API calls will fail.")
 
 analyzer = FaceAnalyzer()
 landmarker_analyzer = FaceLandmarkerAnalyzer()
 
 AVATAR_SCRIPT_PATH = "create_avatar.py"
-AVATAR_SCRIPT_PATH = "/teamspace/studios/this_studio/flame-head-tracker/claude_genereta_arkit_flame_meshes.py"
+AVATAR_SCRIPT_PATH = "/teamspace/studios/this_studio/flame-head-tracker/generate_arkit_flame_meshes.py"
+AVATAR_SCRIPT_PATH = "flame-head-tracker/generate_arkit_flame_meshes.py"
 
-NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/neutral_images"
+NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/_neutral_images"
 
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
+DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face_8486.jpg"
 
+GEMINI_MODEL_NAME = "gemini-2.5-flash-image-preview"
 
 AVATAR_OUTPUT_DIR = "generated_avatars"
 os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 
 MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: '
+MESSAGE_ERROR_IN_PROCESS_TRANSFORMED = 'Error in process AI image transformed.'
+MESSAGE_NOT_IMAGES_AVATAR = 'Error not image for avatar creations'
 
-def transform_image_with_gemini(image: np.ndarray, prompt: str) -> Tuple[np.ndarray, Dict[str, Any]]:
+
+###################################################################
+#
+# Call Gemini Nano Banana Bibliografy
+#    https://gist.github.com/patrickloeber/c4492974c6d625a6a57413810a605b12
+#    https://gist.github.com/patrickloeber
+#
+####################################################################
+def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndarray:
+#Tuple[np.ndarray, Dict[str, Any]]:
     if GOOGLE_API_KEY is None:
-        return None, {"error": "Gemini API key not configured. Please set GOOGLE_API_KEY environment variable."}
-    if image is None and not prompt:
-        return None, {"error": "No image or prompt provided for transformation."}
+        return None
+        #, {"error": "Gemini API key not configured. Please set GOOGLE_API_KEY environment variable."}
+    if image_array is None and not prompt:
+        return None,
+        # {"error": "No image or prompt provided for transformation."}
+   
 
     try:
-        model = genai.GenerativeModel('gemini-pro-vision')
-        inputs = []
-        if prompt:
-            inputs.append(prompt)
-        if image is not None:
-            pil_image = Image.fromarray(image)
-            inputs.append(pil_image)
+        # if image_array.dtype != np.uint8:
+        #   if image_array.max() <= 1.0:
+        #     image_array = (image_array * 255).astype(np.uint8)
+        #   else:
+        #     image_array = image_array.astype(np.uint8)
+    
+        # image = Image.fromarray(image_array, mode='RGBA')
 
-        response = model.generate_content(inputs)
+        client = genai.Client(api_key = GOOGLE_API_KEY)
+       # Call the API to generate content        
+        if image_array.size == 0:
+            response = client.models.generate_content(
+                                         model = GEMINI_MODEL_NAME,
+                                         contents = prompt,
+                                    )
+        else:           
+            pil_image = Image.fromarray(image_array)           
+            # Pass both the text prompt and the image in the 'contents' list
+            response = client.models.generate_content(
+                model = GEMINI_MODEL_NAME,
+                contents=[prompt, pil_image],
+            )
 
-        # Si la respuesta contiene imagen generada, procesarla aquí (depende del SDK)
-        # Por ahora, solo devolvemos el texto de respuesta y la imagen original
-        generated_image_numpy = image if image is not None else None
+        generated_image_numpy = None
+        # The response can contain both text and image data.
+        # Iterate through the parts to find and save the image.
+        for part in response.candidates[0].content.parts:
+            if part.text is not None:
+               text_result = part.text
+            elif part.inline_data is not None:
+                generated_image_numpy = np.asarray(Image.open(BytesIO(part.inline_data.data)))  
 
-        return generated_image_numpy, {"status": "success", "message": getattr(response, "text", str(response))}
+
+        return generated_image_numpy
+        #, {"status": "success", "message": getattr(response, "text", str(response))}
     except Exception as e:
-        return None, {"error": f"Error transforming image with Gemini: {e}"}
+        print(f"Error occured {e}")
+        return None
+        #, {"error": f"Error transforming image with Gemini: {e}"}
 
 def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
     if image is None:
         return {"error": "No transformed image to create avatar from"}
     
      # Remove existing files in the output directory
-    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
-         list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
-         if len(list_of_files) == 1: #Only a face imafes for get information
-            output_dir = list_of_files[0]
-            temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
-           
-    elif image is not None:
-        temp_img_path = os.path.join(tempfile.gettempdir(), "temp_transformed_avatar_input.png")
-        cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    if os.path.exists(NEUTRAL_IMAGES_ADDRESS) and image_array.size > 0:
+
+        ##Save images in component in neutral_images
+         pil_image = Image.fromarray(image_array)    
+         filename = f"neutral_face_{random.randint(1000, 9999)}.jpg"      
+         temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, filename) 
+
+         pil_image.save(temp_img_path)
     
-    result = run_avatar_script(temp_img_path, "transformed_image")
+         result = run_avatar_script(temp_img_path, "transformed_image")
+    else:
+       raise gr.Error(MESSAGE_ERROR_IN_PROCESS_TRANSFORMED)
     #os.remove(temp_img_path)
     return result
 
@@ -90,19 +134,40 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         
         if not os.path.exists(AVATAR_OUTPUT_DIR):
           os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
+
+        print(f"Input path in file => {input_path}")
+
         if not os.path.exists(input_path):
           return {"error": f"{MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST}{AVATAR_OUTPUT_DIR}"} 
+
+
+        command = ["cd","flame-head-tracker/"]
+        print(f"the script is executing in: {os.getcwd()}")
+        #result = subprocess.run(command, capture_output=True, text=True, check=True)
+        sys.path.append("DECA")
+        print("Add DECA libraries in context")
+        #sys.path.append("/teamspace/studios/this_studio/flame-head-tracker/submodules/")
+        print("Add to libraries space")
+        command = ["ls","-l"]
+        #result = subprocess.run(command, capture_output=True, text=True, check=True)
+        print(f"<=== Execute task files in directory ====>\n\n")
+
+
         
         command = [
-            "python",
-            AVATAR_SCRIPT_PATH,
+            "uv", "run", 
+             AVATAR_SCRIPT_PATH,
             "--input_path", input_path,
             "--input_type", input_type,
             "--output_dir", AVATAR_OUTPUT_DIR,
         ]
+        #flame-head-tracker
+
+        print("<=== Execute task files ====>")
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-        output = json.loads(result.stdout)
-        return output
+        print(f"Execution python script result:\n\n {result.stdout}")
+        #output = json.loads(result.stdout)
+        return { 'output': 'Call python scripts'}
     except subprocess.CalledProcessError as e:
         return {"error": f"Error running avatar script: {e.stderr}"}
     except json.JSONDecodeError:
@@ -113,50 +178,75 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
 
 def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
     if image is None:
-        return {"error": "No image provided for avatar creation"}
+        gr.Error ("error : No frame provided for avatar creation")
     
     # Save the image to a temporary file
-    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
-         list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
-         if len(list_of_files) == 1: #Only a face imafes for get information
-            output_dir = list_of_files[0]
-            temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
-    elif image is not None:
-        temp_img_path = os.path.join(tempfile.gettempdir(), "temp_avatar_input.png")
-        cv2.imwrite(temp_img_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+    
+    if len(list_of_files) == 0:
+        raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    else: #Only a face imafes for get information  
+        output_dir = ""
+        for file_name in list_of_files:
+            if 'neutral_face':
+                output_dir = file_name
+            
+        if output_dir == '':
+            raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
+        temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
+        print(f"Avatar create with file images {temp_img_path}")
     
     result = run_avatar_script(temp_img_path, "image")
-    os.remove(temp_img_path)  # Clean up temporary file
+    #os.remove(temp_img_path)  # Clean up temporary file
     return result
 
 
 def create_avatar_video(video_path: str, max_dimension: int, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
-    if not video_path:
-        return {"error": "No video provided for avatar creation"}
+    list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
     
+    if len(list_of_files) == 0:
+        raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    else: #Only a face imafes for get information
+        output_dir = ""
+        for file_name in list_of_files:
+            if 'neutral_face':
+                output_dir = file_name
+        
+        if output_dir == '':
+            raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
+        temp_frame_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
+        print(f"Avatar create with file images {temp_frame_path}")
     
-    
-    # For video, the path is already a file path, no need to save temporarily
-    result = run_avatar_script(video_path, "video")
-    return result
+        # For video, the path is already a file path, no need to save temporarily
+        result = run_avatar_script(video_path, "video")
+        return result
 
 
 def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.Request ) -> Dict[str, Any]:
     if frame is None:
-        return {"error": "No frame provided for avatar creation"}
+        print ("error : No frame provided for avatar creation")
+    
+    temp_frame_path = ''
     
     # Save the webcam frame to a temporary file
     if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
          list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
-         if len(list_of_files) == 1: #Only a face imafes for get information
-            output_dir = list_of_files[0]
+         if len(list_of_files) >= 1: #Only a face imafes for get information
+            output_dir = ""
+            for file_name in list_of_files:
+              if 'neutral_face':
+                output_dir = file_name
+           
+            if output_dir == '':
+              raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)   
             temp_frame_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, output_dir)
-    else :
-       temp_frame_path = os.path.join(tempfile.gettempdir(), "temp_webcam_avatar_input.png")
-       cv2.imwrite(temp_frame_path, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            print(f"Avatar create with file images {temp_frame_path}")
     
-    result = run_avatar_script(temp_frame_path, "webcam_frame")
-    os.remove(temp_frame_path)  # Clean up temporary file
+    if temp_frame_path == None or temp_frame_path == '':
+        return {"error": "No frame provided for avatar creation"}
+    else:
+       result = run_avatar_script(temp_frame_path, "webcam_frame")
+    #os.remove(temp_frame_path)  # Clean up temporary file
     return result
 SHOWING_FACE = 1
 
@@ -479,7 +569,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             model_in = gr.Model3D(
                 label="3D model",
                 interactive=True,
-                value=DEFAULT_3D_MODEL_PATH if os.path.exists(DEFAULT_3D_MODEL_PATH) else None
+                value = DEFAULT_3D_MODEL_PATH if os.path.exists(DEFAULT_3D_MODEL_PATH) else None
             )
             # Add a file upload component for users to upload their own 3D models
             #file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
@@ -491,7 +581,13 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
      
         with gr.Row():
             with gr.Column():
-               img_transform_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+               img_transform_in = gr.Image(
+                                        type ="numpy", 
+                                        label ="Input Image", 
+                                        sources=["upload", "clipboard"], 
+                                        image_mode="RGB",
+                                        value = DEFAULT_PROCESSIG_IMAGE,
+                                    )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
             with gr.Column():        
                 img_transform_out = gr.Image(type="numpy", label="Transformed Image", interactive=False)
@@ -509,7 +605,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         create_avatar_transformed_btn.click(
             fn=create_avatar_from_transformed_image,
             inputs=[img_transform_out],
-            outputs=[img_transform_out],
+            outputs=[],
         )
 
     ## Free and delete user directory when the user close the application

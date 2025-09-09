@@ -22,8 +22,8 @@ else:
 
 # Add project paths to the system path
 # Adjust these paths if your directory structure is different
-DECA_PATH = '../DECA'
-MP_TO_FLAME_PATH = '../mediapipe-blendshapes-to-flame'
+DECA_PATH = '/teamspace/studios/this_studio/DECA'
+MP_TO_FLAME_PATH = '/teamspace/studios/this_studio/mediapipe-blendshapes-to-flame'
 
 FLAME_HEAD_TRAKER = 'flame-head-tracker'
 sys.path.append(DECA_PATH)
@@ -869,12 +869,15 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
         return None
 
 if __name__ == "__main__":
-    
+    print("Start processing Avatar Files")
+   
     parser = argparse.ArgumentParser(description="Process 3D avatar generation parameters.")
     parser.add_argument("--input_path", type=str, required=False, help="Path to the input file (image or video)")
-    parser.add_argument("--input_type", type=str, required=False, choices=["image", "video"], help="Type of input: image or video")
+    parser.add_argument("--input_type", type=str, required=False, choices=["image", "video","webcam_frame","transformed_image"], help="Type of input: image or video")
     parser.add_argument("--output_dir", type=str, required=False, help="Directory to save the output")
-
+   
+    print("Continue processing Avatar Files")
+   
     args = parser.parse_args()
 
     input_path = args.input_path
@@ -898,10 +901,14 @@ if __name__ == "__main__":
         print(f"The neutral images is in address: {direccion_png}")
     else:
         print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-        if os.path.exists(input_path):
-              png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
-              print(f"PNG encontrado: {png_files[0]}")
-              direccion_png = png_files[0]
+        if input_path != None and os.path.exists(input_path):
+              png_files = glob.glob(os.path.join(input_path, "*.jpg"))
+              print(f"PNG encontrado: {png_files}")
+              direccion_png = input_path
+        # elif os.path.exists(direccion_png):
+        #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
+        #      direccion_png = png_files[0]
+
     
     neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    
