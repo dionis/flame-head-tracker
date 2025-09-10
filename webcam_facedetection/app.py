@@ -417,22 +417,30 @@ def start_session(session_id, request: gr.Request):
         session_id =  f"_{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
     return f"Session ID: {session_id}", session_id
 
-def check_neutral_image_exist(session_id: str) -> bool:
+def check_neutral_image_exist(session_id: str, validate:bool = True) -> bool:
     if not session_id:
+       if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+       return None    
     
     if not os.path.exists(NEUTRAL_IMAGES_ADDRESS):
-        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        if validate:
+           raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        return None
     
     list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
     
     if len(list_of_files) == 0:
-        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        if validate:
+          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        return None
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
                 return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
-    raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    if validate:
+      raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    return None
 
 def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> bool:
     if not session_id:
@@ -658,7 +666,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                         label ="Input Image", 
                                         sources=["upload", "clipboard"], 
                                         image_mode="RGB",
-                                        value = check_neutral_image_exist(session_id),
+                                        value = check_neutral_image_exist(session_id, False),
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
