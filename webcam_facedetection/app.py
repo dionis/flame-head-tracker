@@ -117,17 +117,33 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
         return e
         #, {"error": f"Error transforming image with Gemini: {e}"}
 
+def unavailable_botton():
+    # Devuelve el botón con 'interactive=False' inmediatamente
+    return gr.Button(interactive=False)
+def available_botton():
+    # Devuelve el botón con 'interactive=True'
+    return gr.Button(interactive=True)
+
 def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
-    if image is None:
-        return {"error": "No transformed image to create avatar from"}
-    
+    if image is None or image.size == 0:
+        raise gr.Error( "No transformed image to create avatar from")   
      # Remove existing files in the output directory
-    if os.path.exists(NEUTRAL_IMAGES_ADDRESS) and image_array.size > 0:
+    if os.path.exists(NEUTRAL_IMAGES_ADDRESS):       
+         
+         ##Validate if image has a face and neutral face position
+         result = landmarker_analyzer.analyze_image(image=image)
+         
+         if len(result.face_landmarks) == 0:
+            raise gr.Error( "No face found in the image")
+         elif len(result.face_landmarks) > 1:
+            raise gr.Error( "There are more than one face found in the image")
+         elif result.is_neutral_face == False:
+            raise gr.Error( "The face is not in the neutral position")
 
         ##Save images in component in neutral_images
-         pil_image = Image.fromarray(image_array)    
-         filename = f"neutral_face_{random.randint(1000, 9999)}.jpg"      
-         temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, filename) 
+         pil_image = Image.fromarray(image)    
+         filename = f"neutral_face_trasformed_{session_id}.jpg"      
+         temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, filename)         
 
          pil_image.save(temp_img_path)
     
@@ -706,10 +722,17 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{session_id}.jpg"
                print ("Neutral image path for transform => ", neutral_image_path)
               
+            #    img_transform_in = gr.Image(
+            #                             type ="numpy", 
+            #                             label ="Input Image", 
+            #                             sources =["upload", "clipboard"], 
+            #                             image_mode="RGB",                                    
+            #                         )
+                    
                img_transform_in = gr.Image(
                                         type ="numpy", 
                                         label ="Input Image", 
-                                        sources=["upload", "clipboard"], 
+                                        sources =[], 
                                         image_mode="RGB",                                    
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
@@ -732,10 +755,22 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         )
 
         create_avatar_transformed_btn.click(
-            fn=create_avatar_from_transformed_image,
-            inputs=[img_transform_out],
-            outputs=[],
-        )
+                fn = unavailable_botton,
+                inputs = None,
+                outputs = generate_image_btn,
+                # 'queue=False' asegura que esta acción se ejecute de inmediato, no en la cola
+                queue=False
+        ).then(  
+                fn = create_avatar_from_transformed_image,
+                inputs=[img_transform_out,session_id],
+                outputs=[],
+                queue=True
+        ).then(
+            fn= available_botton,
+            inputs = None,
+            outputs = generate_image_btn,
+            queue =False
+        )  
 
     ## Free and delete user directory when the user close the application
     #
