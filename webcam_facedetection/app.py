@@ -41,7 +41,7 @@ NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/_neutral_images"
 NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/neutral_images"
 DEFAULT_3D_MODEL_PATH_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/"
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
-DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face_8486.jpg"
+DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face__jg6lzhz0cnk_e4752063-ea8f-4deb-ae59-c72ccd49e05d.jpg"
 
 GEMINI_MODEL_NAME = "gemini-2.5-flash-image-preview"
 
@@ -451,10 +451,8 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
-                print("Find images to show") 
-                
-                return  np.asarray(Image.open("/teamspace/studios/this_studio/_neutral_images/neutral_face_5750.jpg"))
-                #return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
+                #print("Find images to show") 
+                return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
                 #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     print("Validate images to show") 
     if validate:
@@ -718,7 +716,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
-               imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[img_transform_in])
+               imageTransformer_tab.select(check_neutral_image_exist_aux, inputs=[session_id], outputs=[img_transform_in])
             #    if not os.path.exists(neutral_image_path):
             #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
               
