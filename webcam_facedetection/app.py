@@ -457,6 +457,7 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
+
 def check_neutral_image_exist_aux(session_id: str, validate:bool = True) -> np.ndarray | None:
     return np.asarray(Image.open(DEFAULT_PROCESSIG_IMAGE))
     # if not session_id:
