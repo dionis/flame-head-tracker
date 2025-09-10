@@ -422,7 +422,7 @@ def start_session(session_id, request: gr.Request):
         session_id =  f"_{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
     return f"Session ID: {session_id}", session_id
 
-def check_neutral_image_exist(session_id: str, validate:bool = True) -> Image.Image | None:
+def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarray | None:
     if not session_id:
        if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
@@ -443,7 +443,7 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> Image.Im
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
                 print("Find images to show") 
-                return Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name))
+                return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
                 #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     print("Validate images to show") 
     if validate:
@@ -670,7 +670,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                print ("Neutral image path for transform => ", neutral_image_path)
               
                img_transform_in = gr.Image(
-                                        type ="pil", 
+                                        type ="numpy", 
                                         label ="Input Image", 
                                         sources=["upload", "clipboard"], 
                                         image_mode="RGB",                                    
