@@ -8,6 +8,7 @@ import numpy as np
 import subprocess
 import json
 from google import genai
+from google.api_core  import exceptions
 from PIL import Image
 from io import BytesIO
 import uuid
@@ -50,6 +51,7 @@ os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: '
 MESSAGE_ERROR_IN_PROCESS_TRANSFORMED = 'Error in process AI image transformed.'
 MESSAGE_NOT_IMAGES_AVATAR = 'Error not image for avatar creations'
+MESSAGE_CUOTA_EXCEEDED = 'Gemini API quota exceeded.'
 
 
 ###################################################################
@@ -108,9 +110,13 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
 
         return generated_image_numpy
         #, {"status": "success", "message": getattr(response, "text", str(response))}
+    except exceptions.ResourceExhausted as e:
+        raise gr.Error(MESSAGE_CUOTA_EXCEEDED)
+    except genai.errors.ClientError as e:
+        print(e)
+        raise gr.Error( e.message)
     except Exception as e:
-        print(f"Error occured {e}")
-        return None
+        return e
         #, {"error": f"Error transforming image with Gemini: {e}"}
 
 def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
@@ -455,7 +461,36 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
-def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> bool:
+def check_neutral_image_exist_aux(session_id: str, validate:bool = True) -> np.ndarray | None:
+    return np.asarray(Image.open(DEFAULT_PROCESSIG_IMAGE))
+    # if not session_id:
+    #    if validate:
+    #     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #    return None    
+    
+    # if not os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+    #     if validate:
+    #        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #     return None
+    
+    # list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+    
+    # if len(list_of_files) == 0:
+    #     if validate:
+    #       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #     return None
+    # else: #Only a face imafes for get information
+    #     for file_name in list_of_files:
+    #          if f"neutral_face_{session_id}" in file_name:
+    #             print("Find images to show") 
+    #             return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
+    #             #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
+    # print("Validate images to show") 
+    # if validate:
+    #   raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    # return None
+
+def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
     if not session_id:
       if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
