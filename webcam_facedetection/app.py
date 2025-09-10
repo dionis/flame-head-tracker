@@ -65,6 +65,8 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
         return None
         #, {"error": "Gemini API key not configured. Please set GOOGLE_API_KEY environment variable."}
     if image_array is None and not prompt:
+        print("Validate if error")
+
         return None,
         # {"error": "No image or prompt provided for transformation."}
    
@@ -77,7 +79,7 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
         #     image_array = image_array.astype(np.uint8)
     
         # image = Image.fromarray(image_array, mode='RGBA')
-
+        print("Call Gemini API for image transformation")
         client = genai.Client(api_key = GOOGLE_API_KEY)
        # Call the API to generate content        
         if image_array.size == 0:
@@ -88,6 +90,7 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
         else:           
             pil_image = Image.fromarray(image_array)           
             # Pass both the text prompt and the image in the 'contents' list
+            print("Call Gemini API for image transformation")
             response = client.models.generate_content(
                 model = GEMINI_MODEL_NAME,
                 contents=[prompt, pil_image],
@@ -443,7 +446,9 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
                 print("Find images to show") 
-                return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
+                
+                return  np.asarray(Image.open("/teamspace/studios/this_studio/_neutral_images/neutral_face_5750.jpg"))
+                #return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
                 #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     print("Validate images to show") 
     if validate:
