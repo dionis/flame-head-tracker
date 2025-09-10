@@ -434,7 +434,7 @@ def check_neutral_image_exist(session_id: str) -> bool:
                 return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
 
-def check_neutral_3d_image_exist(session_id: str, validate:bool = False) -> bool:
+def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> bool:
     if not session_id:
       if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
@@ -622,7 +622,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id, True], outputs=[])  
+        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
      
         gr.Markdown(
             """
@@ -638,7 +638,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             model_in = gr.Model3D(
                 label="3D model",
                 interactive=True,
-                value = check_neutral_3d_image_exist(session_id),
+                value = check_neutral_3d_image_exist(session_id, False),
             )
             # Add a file upload component for users to upload their own 3D models
             #file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
