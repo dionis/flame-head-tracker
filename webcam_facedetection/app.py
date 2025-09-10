@@ -434,22 +434,31 @@ def check_neutral_image_exist(session_id: str) -> bool:
                 return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
 
-def check_neutral_3d_image_exist(session_id: str) -> bool:
+def check_neutral_3d_image_exist(session_id: str, validate:bool = False) -> bool:
     if not session_id:
+      if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+      return None
     
     if not os.path.exists(DEFAULT_3D_MODEL_PATH_ADDRESS):
-        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+       if validate:
+           raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+       return None
     
     list_of_files =  os.listdir(DEFAULT_3D_MODEL_PATH_ADDRESS)
     
     if len(list_of_files) == 0:
-        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        if validate:
+          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+        return None
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_{session_id}" in file_name:
                 return os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, file_name)
-    raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    
+    if validate: 
+         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    return None
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
@@ -613,7 +622,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
+        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id, True], outputs=[])  
      
         gr.Markdown(
             """
