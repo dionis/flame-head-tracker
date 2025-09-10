@@ -630,7 +630,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
+        #threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
      
         gr.Markdown(
             """
