@@ -449,7 +449,7 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_face_{session_id}" in file_name:
-                print("Find images to show") 
+                #print("Find images to show") 
                 return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
                 #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     print("Validate images to show") 
