@@ -400,12 +400,17 @@ def delete_directory(req: gr.Request):
     for f in os.listdir(NEUTRAL_IMAGES_ADDRESS):
         if req.session_hash in f:
             print("Image create in session will be deleted")
-            os.remove(os.path.join(NEUTRAL_IMAGES_ADDRESS, f))
+            file_to_delete = os.path.join(NEUTRAL_IMAGES_ADDRESS, f)
+            if os.path.isfile(file_to_delete):
+                os.remove(file_to_delete)
             
     for f in os.listdir(DEFAULT_3D_MODEL_PATH_ADDRESS):
         if req.session_hash in f:
             print("3D model file create in session will be deleted")
-            os.remove(os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, f))
+            
+            file_to_delete = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, f)
+            if os.path.isfile(file_to_delete):
+              os.remove(file_to_delete)
     
     #user_dir: Path = current_dir / str(req.session_hash)
     #shutil.rmtree(str(user_dir))
