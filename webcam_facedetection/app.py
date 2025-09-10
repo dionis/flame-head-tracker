@@ -434,6 +434,23 @@ def check_neutral_image_exist(session_id: str) -> bool:
                 return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
 
+def check_neutral_3d_image_exist(session_id: str) -> bool:
+    if not session_id:
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    
+    if not os.path.exists(DEFAULT_3D_MODEL_PATH_ADDRESS):
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    
+    list_of_files =  os.listdir(DEFAULT_3D_MODEL_PATH_ADDRESS)
+    
+    if len(list_of_files) == 0:
+        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    else: #Only a face imafes for get information
+        for file_name in list_of_files:
+             if f"neutral_{session_id}" in file_name:
+                return os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, file_name)
+    raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
     session_id = gr.State()
@@ -596,7 +613,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        #threeDVisualizer_tab.select(start_session, inputs=[session_id], outputs=[output, session_id])  
+        threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
      
         gr.Markdown(
             """
@@ -612,7 +629,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             model_in = gr.Model3D(
                 label="3D model",
                 interactive=True,
-                value = DEFAULT_3D_MODEL_PATH if os.path.exists(DEFAULT_3D_MODEL_PATH) else None
+                value = check_neutral_3d_image_exist(session_id),
             )
             # Add a file upload component for users to upload their own 3D models
             #file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
