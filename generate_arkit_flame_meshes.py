@@ -94,6 +94,7 @@ ARKIT_ORDER = [
  
 BLANDESHAPE_DIRECOTRY_NAME = "blandeshape_obj_files"
 BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS =  ''
+USER_UNIQUE_ID = ''
 
 def plot(ret_dict, i=0, save_path = 'output', filename = 'image'):
     # plot some results
@@ -383,198 +384,418 @@ def main(
     #Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
     print(f"Generated 52 pose meshes in: {out_dir}")
 
-
-def main_another_example(
-    img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
-    # get the filename from the path
-    out_dir="out_arkit_flame",
-    amplitude=1.0):  # 0..1; 1.0 is full strength
-   
-    if os.path.exists(out_dir):
-        try:
-            shutil.rmtree(out_dir)
-            print(f"successfully removed directory (Clean process): {out_dir}")
-        except OSError as e:
-            print(f"error: {out_dir} : {e.strerror}")
-
-
-
-
-    os.makedirs(out_dir, exist_ok=True)
-    print(f" Image Path : {img_path}")
-    file_name = os.path.basename(img_path)
-    file_name, _ = os.path.splitext(file_name)
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-    ##########################
-    ## Setup Flame Tracker    #     
-    ###########################
-
-    tracker_cfg = {
-        'mediapipe_face_landmarker_v2_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/face_landmarker.task",
-        'flame_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME2020/generic_model.pkl",
-        'flame_lmk_embedding_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/landmark_embedding.npy",
-        'ear_landmarker_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/ear_landmarker.pth", # this is optional, if you do not want to use ear landmarks during fitting, just remove this line
-        'tex_space_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME_albedo_from_BFM.npz",
-        'face_parsing_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/79999_iter.pth",
-        'template_mesh_file_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/head_template.obj",
-        'result_img_size': 512,
-        'use_matting': True,           # use image/video matting to remove background
-        'optimize_fov': True,          # whether to optimize the camera FOV, NOTE: this feature is still experimental
-        'device': device,
-    }
-
-    tracker = Tracker(tracker_cfg)
-
-    # optional settings
-    tracker.update_init_fov(fov=20)    # this is the initial camera FOV, default is 20
-    tracker.set_landmark_detector('mediapipe')
-
-    # if realign == True, 
-    # img will be replaced by the realigned image
-    start_time = time.time() # record the start time
-
-    ret_dict = tracker.load_image_and_run(img_path, realign=True, photometric_fitting = True) 
+class tracker3DImage:
     
-    print("*** !! OK Size of data in Deca dict for get texture Ok !!!")
-    print(tracker.deca.ret_dict.keys())
-   
-    os.makedirs(os.path.join(out_dir, file_name), exist_ok=True)
-
-    tracker.deca.save_obj(
-        os.path.join(out_dir, file_name, file_name + '.obj'), 
-        tracker.deca.ret_dict
-        )
-    #print(tracker.deca.ret_dict.keys)
-
-    end_time = time.time() # record the end time
-
-    elapsed_time = end_time - start_time # calculate the elapsed time
-    print(f"time taken to run load_image_and_run: {elapsed_time:.2f} seconds\n\n") # print the elapsed time
-
-
+    def __init__(self):
+        self.img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
+        # get the filename from the path
+        self.out_dir="out_arkit_flame"
+        self.amplitude=1.0  # 0..1; 1.0 is full strength
     
-    shape = torch.from_numpy(ret_dict['shape']).to(device).detach()           # [N, D_shape]
-    exp = torch.from_numpy(ret_dict['exp']).to(device).detach()               # [N, D_exp]
-    head_pose = torch.from_numpy(ret_dict['head_pose']).to(device).detach()   # [N, 3]
-    jaw_pose = torch.from_numpy(ret_dict['jaw_pose']).to(device).detach() 
-
-    faces = tracker.deca.flame.faces_tensor.cpu().numpy()
-
-    print("####### Processing image to evaluate ##########")
-
-    # Init Mediapipe→FLAME mapper
-    mp2flame = MP_2_FLAME(mappings_path='/teamspace/studios/this_studio/mediapipe-blendshapes-to-flame/mappings')  
-    
-
-    print(shape.shape)
-    print(exp.shape)
-    print(head_pose.shape)
-    print(jaw_pose.shape)
-   
-    print("----- Analysis different data ----")
-
-    print("---- Texture Information -----")
-    print(ret_dict['tex'].shape)
-   
-
-    verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
-   
-    #   self.flame(shape_params=shape, expression_params=exp, 
-    #                                     head_pose_params=head_pose, jaw_pose_params=jaw_pose)
+        if os.path.exists(out_dir):
+            try:
+                shutil.rmtree(out_dir)
+                print(f"successfully removed directory (Clean process): {out_dir}")
+            except OSError as e:
+                print(f"error: {out_dir} : {e.strerror}")
 
 
-    #verts_neutral, _, _ = flame_layer(shape_params= codedict['shape'], expression_params = exp0_t, pose_params=  codedict['pose'])
-  
-    # trimesh.Trimesh(
-    #     vertices = verts_neutral[0].detach().cpu().numpy(), 
-    #     faces = faces, 
-    #     process = False
-    # ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
-    
-    
-    filename_to_copy = file_name + '.obj'
-    target_path = os.path.join(out_dir, 'neutral.obj')
-    source_path = os.path.join(out_dir, file_name, filename_to_copy.replace('.obj', '_detail.obj'))
 
-    print(f"Find out the file in: {source_path}")
-    
-    assert Path(source_path).exists(), f"Missing texture file in {source_path}"
-    shutil.copy(str(source_path), str(target_path)) 
-    print(f"Copy detailed obj file as neutral from : {source_path}")
 
-    #save_obj_as_image(out_dir + os.sep + "neutral.obj",  save_path = out_dir, device = device)
+        os.makedirs(out_dir, exist_ok=True)
+        print(f" Image Path : {img_path}")
+        file_name = os.path.basename(img_path)
+        file_name, _ = os.path.splitext(file_name)
 
-    #plot_save(ret_dict, i = 0, save_path = out_dir)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # For each ARKit blendshape (in required order), create a frame mesh
 
-    #Validate if exit 52 bladshape generation directory
-    blandshape52Directory = Path(out_dir) / BLANDESHAPE_DIRECOTRY_NAME
-    os.makedirs(blandshape52Directory, exist_ok=True)
-    
-    BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS = Path(out_dir) / file_name
+        ##########################
+        ## Setup Flame Tracker    #     
+        ###########################
 
-    for idx, name in enumerate(ARKIT_ORDER, start=1):  # frames 1..52
-        bs = np.zeros((52,), dtype=np.float32)
-        bs[ARKIT_ORDER.index(name)] = amplitude
-        print(f" The blandshape {name} has value for find out : { bs[ARKIT_ORDER.index(name)]}")
+        tracker_cfg = {
+            'mediapipe_face_landmarker_v2_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/face_landmarker.task",
+            'flame_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME2020/generic_model.pkl",
+            'flame_lmk_embedding_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/landmark_embedding.npy",
+            'ear_landmarker_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/ear_landmarker.pth", # this is optional, if you do not want to use ear landmarks during fitting, just remove this line
+            'tex_space_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME_albedo_from_BFM.npz",
+            'face_parsing_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/79999_iter.pth",
+            'template_mesh_file_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/head_template.obj",
+            'result_img_size': 512,
+            'use_matting': True,           # use image/video matting to remove background
+            'optimize_fov': True,          # whether to optimize the camera FOV, NOTE: this feature is still experimental
+            'device': device,
+        }
 
-        exp, pose, eye_pose = mp2flame.convert(blendshape_scores=bs[None, :])
-       
-        exp_t = torch.from_numpy(exp).to(device).float()
-        # Build pose: keep head neutral, apply mapper's jaw component
-        #jaw_pose = torch.from_numpy(pose[:, 3:6]).to(device).float() if pose.shape[1] >= 6 else torch.zeros((1,3), device=device)
-       
-        #full_pose = torch.cat([torch.zeros((1,3), device=device), jaw_pose], dim=1)  # [1,6]
+        self.tracker = Tracker(tracker_cfg)
 
-        jaw_pose = torch.from_numpy(pose[:, 3:]).to(device).float() if pose.shape[1] >= 6 else torch.zeros((1,3), device=device)
-    
-        head_pose = torch.from_numpy(pose[:,:3]).to(device).float() 
+        # optional settings
+        self.tracker.update_init_fov(fov=20)    # this is the initial camera FOV, default is 20
+        self.tracker.set_landmark_detector('mediapipe')
         
-        tracker.deca.ret_dict['exp'] = torch.from_numpy(exp).to(device).float()
-        tracker.deca.ret_dict['pose'] = torch.from_numpy(pose).to(device).float()  
-        tracker.deca.ret_dict['eye_pose'] = torch.from_numpy(eye_pose).to(device).float()    
-             
-       # [N, D_shape]
 
-        #About texture extraction 
-        #https://github.com/mikedh/trimesh/issues/1064
-        
-        new_file_name = f"{name}_neutral.obj"
-        
-        tracker.deca.save_obj(
-          os.path.join(out_dir, file_name, new_file_name), 
-          tracker.deca.ret_dict
-        )
-
-        with torch.no_grad():
-           # verts, _ = flame_layer(shape_params=shape_betas, expression_params=exp_t, pose_params=full_pose)
-
-            #verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
-            verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp_t, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
-        
-        trimesh.Trimesh(
-            vertices = verts_neutral[0].detach().cpu().numpy(), 
-            faces = faces, 
-            process = False
-         ).export(Path(blandshape52Directory)/f"{name}_neutral.obj", include_texture=True, write_texture=True)
-        #mesh_path = Path(out_dir)/f"{idx:02d}_{name}.obj"
-        
-        #trimesh.Trimesh(vertices=verts_neutral[0].detach().cpu().numpy(), faces=faces, process=False).export(mesh_path)
-
+    def main_another_example(self, 
+        img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
+        # get the filename from the path
+        out_dir="out_arkit_flame",
+        amplitude=1.0):  # 0..1; 1.0 is full strength
     
-    Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
-    print(f"Generated 52 pose meshes in: {out_dir} for create a FBX files")
+        if os.path.exists(out_dir):
+            try:
+                shutil.rmtree(out_dir)
+                print(f"successfully removed directory (Clean process): {out_dir}")
+            except OSError as e:
+                print(f"error: {out_dir} : {e.strerror}")
+
+
+
+
+        os.makedirs(out_dir, exist_ok=True)
+        print(f" Image Path : {img_path}")
+        file_name = os.path.basename(img_path)
+        file_name, _ = os.path.splitext(file_name)
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+        ##########################
+        ## Setup Flame Tracker    #     
+        ###########################
+
+        # tracker_cfg = {
+        #     'mediapipe_face_landmarker_v2_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/face_landmarker.task",
+        #     'flame_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME2020/generic_model.pkl",
+        #     'flame_lmk_embedding_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/landmark_embedding.npy",
+        #     'ear_landmarker_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/ear_landmarker.pth", # this is optional, if you do not want to use ear landmarks during fitting, just remove this line
+        #     'tex_space_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/FLAME_albedo_from_BFM.npz",
+        #     'face_parsing_model_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/79999_iter.pth",
+        #     'template_mesh_file_path': f"/teamspace/studios/this_studio/{FLAME_HEAD_TRAKER}/models/head_template.obj",
+        #     'result_img_size': 512,
+        #     'use_matting': True,           # use image/video matting to remove background
+        #     'optimize_fov': True,          # whether to optimize the camera FOV, NOTE: this feature is still experimental
+        #     'device': device,
+        # }
+
+        # tracker = Tracker(tracker_cfg)
+
+        # # optional settings
+        # tracker.update_init_fov(fov=20)    # this is the initial camera FOV, default is 20
+        # tracker.set_landmark_detector('mediapipe')
+
+        # if realign == True, 
+        # img will be replaced by the realigned image
+        start_time = time.time() # record the start time
+
+        ret_dict = self.tracker.load_image_and_run(img_path, realign=True, photometric_fitting = True) 
+        
+        print("*** !! OK Size of data in Deca dict for get texture Ok !!!")
+        print(self.tracker.deca.ret_dict.keys())
     
-    ###Return adress to texture files and texture file name
-    return (os.path.join(out_dir, "neutral.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
+        os.makedirs(os.path.join(out_dir, file_name), exist_ok=True)
+
+        self.tracker.deca.save_obj(
+            os.path.join(out_dir, file_name, file_name + '.obj'), 
+            self.tracker.deca.ret_dict
+            )
+        #print(tracker.deca.ret_dict.keys)
+
+        end_time = time.time() # record the end time
+
+        elapsed_time = end_time - start_time # calculate the elapsed time
+        print(f"time taken to run load_image_and_run: {elapsed_time:.2f} seconds\n\n") # print the elapsed time
+
+
+        
+        shape = torch.from_numpy(ret_dict['shape']).to(device).detach()           # [N, D_shape]
+        exp = torch.from_numpy(ret_dict['exp']).to(device).detach()               # [N, D_exp]
+        head_pose = torch.from_numpy(ret_dict['head_pose']).to(device).detach()   # [N, 3]
+        jaw_pose = torch.from_numpy(ret_dict['jaw_pose']).to(device).detach() 
+
+        faces = self.tracker.deca.flame.faces_tensor.cpu().numpy()
+
+        print("####### Processing image to evaluate ##########")
+
+        # Init Mediapipe→FLAME mapper
+        mp2flame = MP_2_FLAME(mappings_path='/teamspace/studios/this_studio/mediapipe-blendshapes-to-flame/mappings')  
+        
+
+        print(shape.shape)
+        print(exp.shape)
+        print(head_pose.shape)
+        print(jaw_pose.shape)
     
+        print("----- Analysis different data ----")
+
+        print("---- Texture Information -----")
+        print(ret_dict['tex'].shape)
+    
+
+        verts_neutral, _, _ = self.tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
+    
+        #   self.flame(shape_params=shape, expression_params=exp, 
+        #                                     head_pose_params=head_pose, jaw_pose_params=jaw_pose)
+
+
+        #verts_neutral, _, _ = flame_layer(shape_params= codedict['shape'], expression_params = exp0_t, pose_params=  codedict['pose'])
+    
+        # trimesh.Trimesh(
+        #     vertices = verts_neutral[0].detach().cpu().numpy(), 
+        #     faces = faces, 
+        #     process = False
+        # ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
+        
+        
+        filename_to_copy = file_name + '.obj'
+        target_path = os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj")
+        source_path = os.path.join(out_dir, file_name, filename_to_copy.replace('.obj', '_detail.obj'))
+
+        print(f"Find out the file in: {source_path}")
+        
+        assert Path(source_path).exists(), f"Missing texture file in {source_path}"
+        shutil.copy(str(source_path), str(target_path)) 
+        print(f"Copy detailed obj file as neutral from : {source_path}")
+
+        #save_obj_as_image(out_dir + os.sep + "neutral.obj",  save_path = out_dir, device = device)
+
+        #plot_save(ret_dict, i = 0, save_path = out_dir)
+
+        # For each ARKit blendshape (in required order), create a frame mesh
+
+        #Validate if exit 52 bladshape generation directory
+        blandshape52Directory = Path(out_dir) / BLANDESHAPE_DIRECOTRY_NAME
+        os.makedirs(blandshape52Directory, exist_ok=True)
+        
+        BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS = Path(out_dir) / file_name
+
+        for idx, name in enumerate(ARKIT_ORDER, start=1):  # frames 1..52
+            bs = np.zeros((52,), dtype=np.float32)
+            bs[ARKIT_ORDER.index(name)] = amplitude
+            print(f" The blandshape {name} has value for find out : { bs[ARKIT_ORDER.index(name)]}")
+
+            exp, pose, eye_pose = mp2flame.convert(blendshape_scores=bs[None, :])
+        
+            exp_t = torch.from_numpy(exp).to(device).float()
+            # Build pose: keep head neutral, apply mapper's jaw component
+            #jaw_pose = torch.from_numpy(pose[:, 3:6]).to(device).float() if pose.shape[1] >= 6 else torch.zeros((1,3), device=device)
+        
+            #full_pose = torch.cat([torch.zeros((1,3), device=device), jaw_pose], dim=1)  # [1,6]
+
+            jaw_pose = torch.from_numpy(pose[:, 3:]).to(device).float() if pose.shape[1] >= 6 else torch.zeros((1,3), device=device)
+        
+            head_pose = torch.from_numpy(pose[:,:3]).to(device).float() 
+            
+            self.tracker.deca.ret_dict['exp'] = torch.from_numpy(exp).to(device).float()
+            self.tracker.deca.ret_dict['pose'] = torch.from_numpy(pose).to(device).float()  
+            self.tracker.deca.ret_dict['eye_pose'] = torch.from_numpy(eye_pose).to(device).float()    
+                
+        # [N, D_shape]
+
+            #About texture extraction 
+            #https://github.com/mikedh/trimesh/issues/1064
+            
+            new_file_name = f"{name}_neutral__{USER_UNIQUE_ID}.obj"
+            
+            self.tracker.deca.save_obj(
+            os.path.join(out_dir, file_name, new_file_name), 
+            self.tracker.deca.ret_dict
+            )
+
+            with torch.no_grad():
+            # verts, _ = flame_layer(shape_params=shape_betas, expression_params=exp_t, pose_params=full_pose)
+
+                #verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
+                verts_neutral, _, _ = self.tracker.flame(shape_params = shape, expression_params = exp_t, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
+            
+            trimesh.Trimesh(
+                vertices = verts_neutral[0].detach().cpu().numpy(), 
+                faces = faces, 
+                process = False
+            ).export(Path(blandshape52Directory)/f"{name}_neutral.obj", include_texture=True, write_texture=True)
+            #mesh_path = Path(out_dir)/f"{idx:02d}_{name}.obj"
+            
+            #trimesh.Trimesh(vertices=verts_neutral[0].detach().cpu().numpy(), faces=faces, process=False).export(mesh_path)
+
+        
+        Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
+        print(f"Generated 52 pose meshes in: {out_dir} for create a FBX files")
+        
+        ###Return adress to texture files and texture file name
+        return (os.path.join(out_dir, f"neutral__{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
+        
+
+
+    def export_from_objs_to_fbx(self, output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
+        # CONFIG
+        IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
+        OUT_FBX = IN_DIR / "arkit_52_animation.fbx"
+        SCENE_FPS = 30
+        
+        TEXTURE_DIR = Path(texture_files_dir if texture_files_dir != '' else IN_DIR)  # where the texture files are
+    
+        #Scene Cleanup: All objects in the default scene (camera, light, cube) 
+        # are removed to start with a clean scene.
+        if bpy.ops.object.mode_set.poll():
+          bpy.ops.object.mode_set(mode='OBJECT')
+
+        # Select all objects in the scene.
+        bpy.ops.object.select_all(action='SELECT')
+
+        # Delete the selected objects.
+        bpy.ops.object.delete()
+        
+        #--------------------------------------------------------
+
+        bpy.ops.wm.read_homefile(use_empty=True)
+        bpy.context.scene.render.fps = SCENE_FPS
+
+        neutral_path = IN_DIR / f"neutral__{USER_UNIQUE_ID}.obj"
+        assert neutral_path.exists(), f"Missing {neutral_path}"
+        # Import neutral mesh
+        #bpy.ops.import_scene.obj(filepath=str(neutral_path))
+        
+        # texture_file = TEXTURE_DIR / texture_filename
+        # assert texture_file.exists(), f"Missing texture file in {texture_file}"
+        # print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
+    
+        # # Copy file from texture_file to IN_DIR
+        # dest_texture_path = IN_DIR / "neutral.png"
+        # shutil.copy(str(texture_file), str(dest_texture_path))     
+        
+
+        #bpy.ops.wm.obj_import(filepath=str(neutral_path))
+        #filter_image = True
+    
+        bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
+        
+        #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
+        
+        # Assigns the material to the active object.
+        #active_object = bpy.context.active_object
+        #if active_object and active_object.type == 'MESH':
+        #  new_material = create_textured_material("DECA_Material", str(texture_file))
+        
+    # Delete existing material slots and add a new one.
+        #active_object.data.materials.clear()
+        #active_object.data.materials.append(new_material)
+        
+
+        obj = bpy.context.selected_objects[0]
+        obj.name = "Head"
+        bpy.context.view_layer.objects.active = obj
+        # Ensure a Basis key exists
+        if not obj.data.shape_keys:
+            obj.shape_key_add(name="Basis", from_mix=False)
+
+        # Load ARKit order
+        ARKIT_ORDER = json.loads((IN_DIR/"arkit_order.json").read_text())
+
+        # For each pose OBJ, add a shape key from it
+        shape_key_names = []
+        for i, name in enumerate(ARKIT_ORDER, start=1):
+            #blandshape_filename = f"{i:02d}_{name}.obj"
+            blandshape_filename = f"{name}_neutral.obj"
+            
+            blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
+            
+            path_detailed = Path(TEXTURE_DIR) / blandshape_filename_detailed
+            
+            print(f"Read detailed failed from => {path_detailed}")
+            
+            #Using obj detailed filename
+            
+
+            path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
+            #bpy.ops.import_scene.obj(filepath=str(path))
+
+            ######################################################## 
+            #
+            bpy.ops.wm.obj_import(filepath=str(path))
+            #
+            ########################################################
+            #
+            ## Load from DECA detailed obj file
+            #
+            #bpy.ops.wm.obj_import(filepath=str(path_detailed))
+            #
+            #
+            ########################################################
+
+            poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
+            # Add shape key from the poser geometry
+            sk = obj.shape_key_add(name=name, from_mix=False)
+            # Transfer vertex positions
+            obj.data.shape_keys.key_blocks[name].value = 0.0
+            # Copy verts (assumes identical topology)
+            for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
+                sk.data[v_dst.index].co = v_src.co
+            # Cleanup poser mesh
+            bpy.data.objects.remove(poser, do_unlink=True)
+            shape_key_names.append(name)
+
+        # Create 52-frame animation, one key per frame
+        scene = bpy.context.scene
+        scene.frame_start = 1
+        scene.frame_end = 52
+
+        for f, name in enumerate(shape_key_names, start=1):
+            # zero all keys
+            for kb in obj.data.shape_keys.key_blocks:
+                kb.value = 0.0
+            obj.data.shape_keys.key_blocks[name].value = 1.0
+            obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
 
 #
-#
+    def process_image_to_3d_object(self, input_path, input_type, output_dir):
+            # input_path = args.input_path
+            # input_type = args.input_type
+            AVATAR_OUTPUT_DIR = args.output_dir
+
+            print(f"Input path: {input_path}")
+            print(f"Input type: {input_type}")
+            print(f"Output directory: {AVATAR_OUTPUT_DIR}")
+
+            #Get 3D information and convert to 52 Blandshep from Arkit
+            directory_address_neutral_image = "neutral_images"
+            direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
+            
+            # Validar si existe un archivo PNG en el directorio y obtener su dirección
+        
+            if input_path != None and os.path.exists(input_path):
+                
+                    ###Get sesion_id for unique name
+                    file_name = os.path.splitext(os.path.basename(input_path))[0]
+                    
+                    USER_UNIQUE_ID = file_name.replace("neutral_face_", "").replace("neutral_face_trasformed_", "")
+                    print(f" The user unique id is : {USER_UNIQUE_ID}")
+                    
+                    png_files = glob.glob(os.path.join(input_path, "*.jpg"))
+                    print(f"PNG encontrado: {png_files}")
+                    direccion_png = input_path
+            else:
+                png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+                if png_files:
+                    print(f"PNG encontrado: {png_files[0]}")
+                    direccion_png = png_files[0]
+                    print(f"The neutral images is in address: {direccion_png}")
+                else:
+                    print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
+                    exit(1)
+        
+                # elif os.path.exists(direccion_png):
+                #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
+                #      direccion_png = png_files[0]
+
+            
+            neutral_obj_address, texture_file_dir, texture_filename = self.main_another_example(img_path = direccion_png)
+        
+        #Create fbx file with information
+            self.export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
+                                    texture_files_dir = texture_file_dir, 
+                                    texture_filename = texture_filename, 
+                                    blandeshape_directory = BLANDESHAPE_DIRECOTRY_NAME
+                                    )
+        
 def create_textured_material(material_name, texture_path):
     """
      Create a material and a node tree to assign a texture.
@@ -638,125 +859,7 @@ def export_blender_scene_fbl(output_dir = 'out_arkit_flame', filename = 'arkit_5
 
     print(f"Exported: {OUT_GBL}")
 
-def export_from_objs_to_fbx(output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
-        # CONFIG
-    IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
-    OUT_FBX = IN_DIR / "arkit_52_animation.fbx"
-    SCENE_FPS = 30
-    
-    TEXTURE_DIR = Path(texture_files_dir if texture_files_dir != '' else IN_DIR)  # where the texture files are
-   
-    #Scene Cleanup: All objects in the default scene (camera, light, cube) 
-    # are removed to start with a clean scene.
-    if bpy.ops.object.mode_set.poll():
-      bpy.ops.object.mode_set(mode='OBJECT')
 
-    # Select all objects in the scene.
-    bpy.ops.object.select_all(action='SELECT')
-
-    # Delete the selected objects.
-    bpy.ops.object.delete()
-    
-    #--------------------------------------------------------
-
-    bpy.ops.wm.read_homefile(use_empty=True)
-    bpy.context.scene.render.fps = SCENE_FPS
-
-    neutral_path = IN_DIR / "neutral.obj"
-    assert neutral_path.exists(), f"Missing {neutral_path}"
-    # Import neutral mesh
-    #bpy.ops.import_scene.obj(filepath=str(neutral_path))
-    
-    texture_file = TEXTURE_DIR / texture_filename
-    assert texture_file.exists(), f"Missing texture file in {texture_file}"
-    print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
-   
-    # Copy file from texture_file to IN_DIR
-    dest_texture_path = IN_DIR / "neutral.png"
-    shutil.copy(str(texture_file), str(dest_texture_path))     
-    
-
-    #bpy.ops.wm.obj_import(filepath=str(neutral_path))
-    #filter_image = True
-   
-    bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
-    
-    #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
-    
-    # Assigns the material to the active object.
-    #active_object = bpy.context.active_object
-    #if active_object and active_object.type == 'MESH':
-    #  new_material = create_textured_material("DECA_Material", str(texture_file))
-    
-   # Delete existing material slots and add a new one.
-    #active_object.data.materials.clear()
-    #active_object.data.materials.append(new_material)
-    
-
-    obj = bpy.context.selected_objects[0]
-    obj.name = "Head"
-    bpy.context.view_layer.objects.active = obj
-    # Ensure a Basis key exists
-    if not obj.data.shape_keys:
-        obj.shape_key_add(name="Basis", from_mix=False)
-
-    # Load ARKit order
-    ARKIT_ORDER = json.loads((IN_DIR/"arkit_order.json").read_text())
-
-    # For each pose OBJ, add a shape key from it
-    shape_key_names = []
-    for i, name in enumerate(ARKIT_ORDER, start=1):
-        #blandshape_filename = f"{i:02d}_{name}.obj"
-        blandshape_filename = f"{name}_neutral.obj"
-        
-        blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
-        
-        path_detailed = Path(TEXTURE_DIR) / blandshape_filename_detailed
-        
-        print(f"Read detailed failed from => {path_detailed}")
-        
-        #Using obj detailed filename
-        
-
-        path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
-        #bpy.ops.import_scene.obj(filepath=str(path))
-
-        ######################################################## 
-        #
-        bpy.ops.wm.obj_import(filepath=str(path))
-        #
-        ########################################################
-        #
-        ## Load from DECA detailed obj file
-        #
-        #bpy.ops.wm.obj_import(filepath=str(path_detailed))
-        #
-        #
-        ########################################################
-
-        poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
-        # Add shape key from the poser geometry
-        sk = obj.shape_key_add(name=name, from_mix=False)
-        # Transfer vertex positions
-        obj.data.shape_keys.key_blocks[name].value = 0.0
-        # Copy verts (assumes identical topology)
-        for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
-            sk.data[v_dst.index].co = v_src.co
-        # Cleanup poser mesh
-        bpy.data.objects.remove(poser, do_unlink=True)
-        shape_key_names.append(name)
-
-    # Create 52-frame animation, one key per frame
-    scene = bpy.context.scene
-    scene.frame_start = 1
-    scene.frame_end = 52
-
-    for f, name in enumerate(shape_key_names, start=1):
-        # zero all keys
-        for kb in obj.data.shape_keys.key_blocks:
-            kb.value = 0.0
-        obj.data.shape_keys.key_blocks[name].value = 1.0
-        obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
 
     ###---------------------------------------------------------
     #
@@ -868,59 +971,66 @@ def step_1_reconstruct_3d_from_image(image_path: str ="/teamspace/studios/this_s
         print(f"Error during DECA reconstruction: {e}")
         return None
 
-if __name__ == "__main__":
-    print("Start processing Avatar Files")
+# if __name__ == "__main__":
+#     print("Start processing Avatar Files")
    
-    parser = argparse.ArgumentParser(description="Process 3D avatar generation parameters.")
-    parser.add_argument("--input_path", type=str, required=False, help="Path to the input file (image or video)")
-    parser.add_argument("--input_type", type=str, required=False, choices=["image", "video","webcam_frame","transformed_image"], help="Type of input: image or video")
-    parser.add_argument("--output_dir", type=str, required=False, help="Directory to save the output")
+#     parser = argparse.ArgumentParser(description="Process 3D avatar generation parameters.")
+#     parser.add_argument("--input_path", type=str, required=False, help="Path to the input file (image or video)")
+#     parser.add_argument("--input_type", type=str, required=False, choices=["image", "video","webcam_frame","transformed_image"], help="Type of input: image or video")
+#     parser.add_argument("--output_dir", type=str, required=False, help="Directory to save the output")
    
-    print("Continue processing Avatar Files")
+#     print("Continue processing Avatar Files")
    
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    input_path = args.input_path
-    input_type = args.input_type
-    AVATAR_OUTPUT_DIR = args.output_dir
+#     input_path = args.input_path
+#     input_type = args.input_type
+#     AVATAR_OUTPUT_DIR = args.output_dir
 
-    print(f"Input path: {input_path}")
-    print(f"Input type: {input_type}")
-    print(f"Output directory: {AVATAR_OUTPUT_DIR}")
+#     print(f"Input path: {input_path}")
+#     print(f"Input type: {input_type}")
+#     print(f"Output directory: {AVATAR_OUTPUT_DIR}")
 
-    #Get 3D information and convert to 52 Blandshep from Arkit
-    directory_address_neutral_image = "neutral_images"
-    direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
+#     #Get 3D information and convert to 52 Blandshep from Arkit
+#     directory_address_neutral_image = "neutral_images"
+#     direccion_png = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
        
-    # Validar si existe un archivo PNG en el directorio y obtener su dirección
+#     # Validar si existe un archivo PNG en el directorio y obtener su dirección
    
-    if input_path != None and os.path.exists(input_path):
-              png_files = glob.glob(os.path.join(input_path, "*.jpg"))
-              print(f"PNG encontrado: {png_files}")
-              direccion_png = input_path
-    else:
-         png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
-         if png_files:
-            print(f"PNG encontrado: {png_files[0]}")
-            direccion_png = png_files[0]
-            print(f"The neutral images is in address: {direccion_png}")
-         else:
-            print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
-            exit(1)
+#     if input_path != None and os.path.exists(input_path):
+        
+#               ###Get sesion_id for unique name
+#               file_name = os.path.splitext(os.path.basename(input_path))[0]
+              
+#               USER_UNIQUE_ID = file_name.replace("neutral_face_", "").replace("neutral_face_trasformed_", "")
+#               print(f" The user unique id is : {USER_UNIQUE_ID}")
+              
+#               png_files = glob.glob(os.path.join(input_path, "*.jpg"))
+#               print(f"PNG encontrado: {png_files}")
+#               direccion_png = input_path
+#     else:
+#          png_files = glob.glob(os.path.join(directory_address_neutral_image, "*.jpg"))
+#          if png_files:
+#             print(f"PNG encontrado: {png_files[0]}")
+#             direccion_png = png_files[0]
+#             print(f"The neutral images is in address: {direccion_png}")
+#          else:
+#             print(f"No se encontró ningún PNG en {directory_address_neutral_image}")
+#             exit(1)
  
-        # elif os.path.exists(direccion_png):
-        #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
-        #      direccion_png = png_files[0]
+#         # elif os.path.exists(direccion_png):
+#         #      png_files = glob.glob(os.path.join(direccion_png, "*.jpg"))
+#         #      direccion_png = png_files[0]
 
     
-    neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
+#     neutral_obj_address, texture_file_dir, texture_filename = main_another_example(img_path = direccion_png)
    
-   #Create fbx file with information
-    export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
-                             texture_files_dir = texture_file_dir, 
-                             texture_filename = texture_filename, 
-                             blandeshape_directory = BLANDESHAPE_DIRECOTRY_NAME
-                             )
+#    #Create fbx file with information
+#     export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
+#                              texture_files_dir = texture_file_dir, 
+#                              texture_filename = texture_filename, 
+#                              blandeshape_directory = BLANDESHAPE_DIRECOTRY_NAME
+#                              )
 
    #Clean and free resources
    
