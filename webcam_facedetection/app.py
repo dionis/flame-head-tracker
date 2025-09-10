@@ -8,6 +8,7 @@ import numpy as np
 import subprocess
 import json
 from google import genai
+from google.api_core  import exceptions
 from PIL import Image
 from io import BytesIO
 import uuid
@@ -50,6 +51,7 @@ os.makedirs(AVATAR_OUTPUT_DIR, exist_ok=True)
 MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: '
 MESSAGE_ERROR_IN_PROCESS_TRANSFORMED = 'Error in process AI image transformed.'
 MESSAGE_NOT_IMAGES_AVATAR = 'Error not image for avatar creations'
+MESSAGE_CUOTA_EXCEEDED = 'Gemini API quota exceeded.'
 
 
 ###################################################################
@@ -106,9 +108,13 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
 
         return generated_image_numpy
         #, {"status": "success", "message": getattr(response, "text", str(response))}
+    except exceptions.ResourceExhausted as e:
+        raise gr.Error({"error": MESSAGE_CUOTA_EXCEEDED})
+    except genai.errors.ClientError as e:
+        print(e)
+        raise gr.Error( e.message)
     except Exception as e:
-        print(f"Error occured {e}")
-        return None
+        return e
         #, {"error": f"Error transforming image with Gemini: {e}"}
 
 def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
@@ -707,7 +713,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
-               imageTransformer_tab.select(check_neutral_image_exist_aux, inputs=[session_id], outputs=[img_transform_in])
+               imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[img_transform_in])
             #    if not os.path.exists(neutral_image_path):
             #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
               
