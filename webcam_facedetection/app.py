@@ -422,7 +422,7 @@ def start_session(session_id, request: gr.Request):
         session_id =  f"_{request.session_hash}_" + str(uuid.uuid4())  # Crear un ID único
     return f"Session ID: {session_id}", session_id
 
-def check_neutral_image_exist(session_id: str, validate:bool = True) -> Image | None:
+def check_neutral_image_exist(session_id: str, validate:bool = True) -> Image.Image | None:
     if not session_id:
        if validate:
         raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
@@ -670,10 +670,10 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                print ("Neutral image path for transform => ", neutral_image_path)
               
                img_transform_in = gr.Image(
-                                        type ="numpy", 
+                                        type ="pil", 
                                         label ="Input Image", 
                                         sources=["upload", "clipboard"], 
-                                        image_mode="RGB",                                      
+                                        image_mode="RGB",                                    
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
