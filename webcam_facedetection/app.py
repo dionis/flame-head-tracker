@@ -88,6 +88,7 @@ def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndar
         else:           
             pil_image = Image.fromarray(image_array)           
             # Pass both the text prompt and the image in the 'contents' list
+            print("Call Gemini API for image transformation")
             response = client.models.generate_content(
                 model = GEMINI_MODEL_NAME,
                 contents=[prompt, pil_image],
@@ -450,6 +451,35 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
+def check_neutral_image_exist_aux(session_id: str, validate:bool = True) -> np.ndarray | None:
+    return np.asarray(Image.open(DEFAULT_PROCESSIG_IMAGE))
+    # if not session_id:
+    #    if validate:
+    #     raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #    return None    
+    
+    # if not os.path.exists(NEUTRAL_IMAGES_ADDRESS):
+    #     if validate:
+    #        raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #     return None
+    
+    # list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
+    
+    # if len(list_of_files) == 0:
+    #     if validate:
+    #       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    #     return None
+    # else: #Only a face imafes for get information
+    #     for file_name in list_of_files:
+    #          if f"neutral_face_{session_id}" in file_name:
+    #             print("Find images to show") 
+    #             return  np.asarray(Image.open(os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)))
+    #             #return os.path.join(NEUTRAL_IMAGES_ADDRESS, file_name)
+    # print("Validate images to show") 
+    # if validate:
+    #   raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
+    # return None
+
 def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
     if not session_id:
       if validate:
@@ -677,7 +707,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
-               imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[img_transform_in])
+               imageTransformer_tab.select(check_neutral_image_exist_aux, inputs=[session_id], outputs=[img_transform_in])
             #    if not os.path.exists(neutral_image_path):
             #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
               
