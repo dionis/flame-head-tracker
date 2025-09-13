@@ -47,3 +47,4 @@ out_arkit_flame/*
 webcam_facedetection/.env
 neutral_images/*
 _neutral_images/*
+.gradio/*

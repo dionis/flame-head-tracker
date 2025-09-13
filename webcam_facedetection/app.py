@@ -13,11 +13,16 @@ from PIL import Image
 from io import BytesIO
 import uuid
 import shutil
-from utils.face_analyzer import FaceAnalyzer, FaceAnalysisResult
-from utils.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
+from utils_tool.face_analyzer import FaceAnalyzer, FaceAnalysisResult
+from utils_tool.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLandmarkerResult
 import random
 sys.path.append("/teamspace/studios/this_studio/DECA")
 from decalib.datasets import datasets
+
+sys.path.append("/teamspace/studios/this_studio/flame-head-tracker")
+#sys.path.append("/teamspace/studios/this_studio/flame-head-tracker/utils")
+
+from generate_arkit_flame_meshes import Tracker3DImage
 
 # --- NUEVO: Leer variables de entorno desde archivo .env si existe ---
 from dotenv import load_dotenv
@@ -33,12 +38,17 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 analyzer = FaceAnalyzer()
 landmarker_analyzer = FaceLandmarkerAnalyzer()
 
+
+### 2d files and 3D object to transforms
+
+converter = Tracker3DImage()
+
 AVATAR_SCRIPT_PATH = "create_avatar.py"
 AVATAR_SCRIPT_PATH = "/teamspace/studios/this_studio/flame-head-tracker/generate_arkit_flame_meshes.py"
 AVATAR_SCRIPT_PATH = "flame-head-tracker/generate_arkit_flame_meshes.py"
 
-NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/_neutral_images"
-NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/neutral_images"
+NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/_neutral_images"
+NEUTRAL_IMAGES_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/neutral_images"
 DEFAULT_3D_MODEL_PATH_ADDRESS = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/"
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face__jg6lzhz0cnk_e4752063-ea8f-4deb-ae59-c72ccd49e05d.jpg"
@@ -53,6 +63,7 @@ MESSAGE_ERROR_IN_PROCESS_TRANSFORMED = 'Error in process AI image transformed.'
 MESSAGE_NOT_IMAGES_AVATAR = 'Error not image for avatar creations'
 MESSAGE_CUOTA_EXCEEDED = 'Gemini API quota exceeded.'
 
+streaming_active = True
 
 ###################################################################
 #
@@ -168,14 +179,14 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
           return {"error": f"{MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST}{AVATAR_OUTPUT_DIR}"} 
 
 
-        command = ["cd","flame-head-tracker/"]
-        print(f"the script is executing in: {os.getcwd()}")
-        #result = subprocess.run(command, capture_output=True, text=True, check=True)
-        sys.path.append("DECA")
-        print("Add DECA libraries in context")
-        #sys.path.append("/teamspace/studios/this_studio/flame-head-tracker/submodules/")
-        print("Add to libraries space")
-        command = ["ls","-l"]
+        # command = ["cd","flame-head-tracker/"]
+        # print(f"the script is executing in: {os.getcwd()}")
+        # #result = subprocess.run(command, capture_output=True, text=True, check=True)
+        # sys.path.append("DECA")
+        # print("Add DECA libraries in context")
+        # #sys.path.append("/teamspace/studios/this_studio/flame-head-tracker/submodules/")
+        # print("Add to libraries space")
+        # command = ["ls","-l"]
         #result = subprocess.run(command, capture_output=True, text=True, check=True)
         print(f"<=== Execute task files in directory ====>\n\n")
 
@@ -191,8 +202,15 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         #flame-head-tracker
 
         print("<=== Execute task files ====>")
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        print(f"Execution python script result:\n\n {result.stdout}")
+        #result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = converter.process_image_to_3d_object(
+            input_path = input_path,
+            input_type = input_type,
+            output_dir = AVATAR_OUTPUT_DIR
+        ) 
+
+        #print(f"Execution python script result:\n\n {result.stdout}")
+        print(f"Execution python script result:\n\n {result}")
         #output = json.loads(result.stdout)
         return { 'output': 'Call python scripts'}
     except subprocess.CalledProcessError as e:
@@ -256,6 +274,8 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
         print ("error : No frame provided for avatar creation")
     
     temp_frame_path = ''
+    global streaming_active
+    streaming_active = False
     
     # Save the webcam frame to a temporary file
     if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
@@ -401,20 +421,26 @@ def process_landmarker_stream(
     
     landmarker_analyzer.user_image_filename = f"{session_id}"
 
-    result = landmarker_analyzer.analyze_image(image=frame)
-    
-    SHOWING_FACE = len(result.face_landmarks)
-    
-    if SHOWING_FACE == 0 or SHOWING_FACE > 1:
-        gr.Error(ERROR_MESSAGE_MORE_ONE_FACE) 
-    
-    return result.annotated_image_rgb, {
-        "face_landmarks": SHOWING_FACE,
-        "expressions": result.expressions,
-        "is_neutral_face": result.is_neutral_face,
-    }, gr.Label(value="Yes" if result.is_neutral_face else "No", elem_classes=["neutral-face-true"] if result.is_neutral_face else ["neutral-face-false"]), gr.Label(value="Yes" if len(result.face_landmarks) == 1 else "No", elem_classes=["single-face-true"] if len(result.face_landmarks) == 1 else ["single-face-false"])
+    if not streaming_active:
+        return None, {}, None
+    else:
+        result = landmarker_analyzer.analyze_image(image=frame)
+        
+        SHOWING_FACE = len(result.face_landmarks)
+        
+        if SHOWING_FACE == 0 or SHOWING_FACE > 1:
+            gr.Error(ERROR_MESSAGE_MORE_ONE_FACE) 
+        
+        return result.annotated_image_rgb, {
+            "face_landmarks": SHOWING_FACE,
+            "expressions": result.expressions,
+            "is_neutral_face": result.is_neutral_face,
+        }, gr.Label(value="Yes" if result.is_neutral_face else "No", elem_classes=["neutral-face-true"] if result.is_neutral_face else ["neutral-face-false"]), gr.Label(value="Yes" if len(result.face_landmarks) == 1 else "No", elem_classes=["single-face-true"] if len(result.face_landmarks) == 1 else ["single-face-false"])
 
 def clear_components():
+    global streaming_active
+    streaming_active = False
+    
     return None, {}, None, None
 
 def delete_directory(req: gr.Request):    
@@ -475,7 +501,6 @@ def check_neutral_image_exist(session_id: str, validate:bool = True) -> np.ndarr
       raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
-
 def check_neutral_image_exist_aux(session_id: str, validate:bool = True) -> np.ndarray | None:
     return np.asarray(Image.open(DEFAULT_PROCESSIG_IMAGE))
     # if not session_id:
@@ -530,6 +555,27 @@ def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
     if validate: 
          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
+
+###########################################
+#
+#  Example functions
+#
+###########################################
+
+# streaming_active = True
+
+# def stream_handler(img):
+#     if streaming_active:
+#         # Process img frame
+#         return img
+#     else:
+#         # Ignore frames on stop
+#         return None
+
+# def stop_stream():
+#     global streaming_active
+#     streaming_active = False
+#     print("Stream stopped by user")
 
 with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
    
@@ -658,19 +704,21 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         with gr.Tab("Webcam Landmarker"):
             clear_manual_btn = gr.Button("Clear Manually")
             with gr.Row():
+                with gr.Column():
+                    land_cam_in = gr.Image(
+                        sources=["webcam"],
+                        streaming=True,
+                        type="numpy",
+                        label="Webcam",
+                        image_mode="RGB",
+                    )
+                     
+                    land_single_face_label = gr.Label(label="Single Face Detected", value="No", show_label=True)
+                with gr.Column():
+                   land_cam_out = gr.Image(type="numpy", label="Salida", interactive=False)               
+                   land_cam_json = gr.JSON(label="Métricas (en vivo)")
           
-                land_cam_in = gr.Image(
-                    sources=["webcam"],
-                    streaming=True,
-                    type="numpy",
-                    label="Webcam",
-                    image_mode="RGB",
-                )
-                land_cam_out = gr.Image(type="numpy", label="Salida", interactive=False)
-                
-            land_single_face_label = gr.Label(label="Single Face Detected", value="No", show_label=True)
-          
-            land_cam_json = gr.JSON(label="Métricas (en vivo)")
+           
             #land_neutral_label = gr.Label(label="Neutral Face Detected", value="No", show_label=True)
             
             land_cam_in.stream(
@@ -679,17 +727,22 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                  outputs=[land_cam_out, land_cam_json,  land_single_face_label],
                 #outputs=[land_cam_out, land_cam_json, land_neutral_label, land_single_face_label],
             )
+
+            # Call stop_streaming_handler when the user stops recording
+            #land_cam_in.stop(fn = stop_streaming_process)
+
             # land_cam_in.release(
             #     fn=clear_components,
-            #   ,
+            #     inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label]
             # )
             clear_manual_btn.click(clear_components, inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label])
 
             create_avatar_webcam_btn = gr.Button("Create avatar")
+            avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
             create_avatar_webcam_btn.click(
                 fn=create_avatar_webcam,
                 inputs=[land_cam_in, session_id],
-                outputs=[land_cam_json],
+                outputs=[avatar_creation_json],
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
@@ -722,7 +775,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         with gr.Row():
             with gr.Column():
                neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{session_id}.jpg"
-               print ("Neutral image path for transform => ", neutral_image_path)
+               print (f"Neutral image path for transform => {neutral_image_path}")
               
             #    img_transform_in = gr.Image(
             #                             type ="numpy", 
@@ -774,6 +827,19 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             queue =False
         )  
 
+   
+    # with gr.Tab("Text Example Image Stream") as evaluate_idea:
+    #      videoWebCam = gr.Video(sources=["webcam"], format="mp4"),
+    #      webcam = gr.Image( sources=["webcam"])       
+    #      output = gr.Image()
+    #      stop_button = gr.Button("Stop Stream")
+    
+    #      stop_button.click(fn=stop_stream)
+
+    #      webcam.stream(fn=stream_handler, inputs=webcam, outputs=output)
+
+   
+   
     ## Free and delete user directory when the user close the application
     #
     # Bibliografy:

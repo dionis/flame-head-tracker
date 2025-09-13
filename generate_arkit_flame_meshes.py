@@ -28,7 +28,7 @@ MP_TO_FLAME_PATH = '/teamspace/studios/this_studio/mediapipe-blendshapes-to-flam
 FLAME_HEAD_TRAKER = 'flame-head-tracker'
 sys.path.append(DECA_PATH)
 sys.path.append(MP_TO_FLAME_PATH)
-#sys.path.append(FLAME_HEAD_TRAKER)
+sys.path.append("/teamspace/studios/this_studio/flame-head-tracker")
 
 import trimesh
 
@@ -41,6 +41,8 @@ from decalib.utils import util
 
 
 WORKING_DIR = '/teamspace/studios/this_studio/flame-head-tracker'
+
+
 os.chdir(WORKING_DIR) # change the working directory to the project's absolute path
 print("Current Working Directory: ", os.getcwd())
 
@@ -384,27 +386,26 @@ def main(
     #Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
     print(f"Generated 52 pose meshes in: {out_dir}")
 
-class tracker3DImage:
+class Tracker3DImage:
     
     def __init__(self):
-        self.img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
-        # get the filename from the path
+        self.img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg"
         self.out_dir="out_arkit_flame"
         self.amplitude=1.0  # 0..1; 1.0 is full strength
     
-        if os.path.exists(out_dir):
+        if os.path.exists(self.out_dir):
             try:
-                shutil.rmtree(out_dir)
-                print(f"successfully removed directory (Clean process): {out_dir}")
+                shutil.rmtree(self.out_dir)
+                print(f"successfully removed directory (Clean process): {self.out_dir}")
             except OSError as e:
-                print(f"error: {out_dir} : {e.strerror}")
+                print(f"error: {self.out_dir} : {e.strerror}")
 
 
 
 
-        os.makedirs(out_dir, exist_ok=True)
-        print(f" Image Path : {img_path}")
-        file_name = os.path.basename(img_path)
+        os.makedirs(self.out_dir, exist_ok=True)
+        print(f" Image Path : {self.img_path}")
+        file_name = os.path.basename(self.img_path)
         file_name, _ = os.path.splitext(file_name)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -544,7 +545,7 @@ class tracker3DImage:
         #     faces = faces, 
         #     process = False
         # ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
-        
+        global USER_UNIQUE_ID
         
         filename_to_copy = file_name + '.obj'
         target_path = os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj")
@@ -555,6 +556,7 @@ class tracker3DImage:
         assert Path(source_path).exists(), f"Missing texture file in {source_path}"
         shutil.copy(str(source_path), str(target_path)) 
         print(f"Copy detailed obj file as neutral from : {source_path}")
+        print(f"Copy detailed obj file as neutral to : {target_path}")
 
         #save_obj_as_image(out_dir + os.sep + "neutral.obj",  save_path = out_dir, device = device)
 
@@ -571,7 +573,7 @@ class tracker3DImage:
         for idx, name in enumerate(ARKIT_ORDER, start=1):  # frames 1..52
             bs = np.zeros((52,), dtype=np.float32)
             bs[ARKIT_ORDER.index(name)] = amplitude
-            print(f" The blandshape {name} has value for find out : { bs[ARKIT_ORDER.index(name)]}")
+            #print(f" The blandshape {name} has value for find out : { bs[ARKIT_ORDER.index(name)]}")
 
             exp, pose, eye_pose = mp2flame.convert(blendshape_scores=bs[None, :])
         
@@ -611,145 +613,214 @@ class tracker3DImage:
                 vertices = verts_neutral[0].detach().cpu().numpy(), 
                 faces = faces, 
                 process = False
-            ).export(Path(blandshape52Directory)/f"{name}_neutral.obj", include_texture=True, write_texture=True)
+            ).export(Path(blandshape52Directory)/new_file_name, include_texture=True, write_texture=True)
             #mesh_path = Path(out_dir)/f"{idx:02d}_{name}.obj"
             
             #trimesh.Trimesh(vertices=verts_neutral[0].detach().cpu().numpy(), faces=faces, process=False).export(mesh_path)
 
         
-        Path(out_dir, "arkit_order.json").write_text(json.dumps(ARKIT_ORDER, indent=2))
-        print(f"Generated 52 pose meshes in: {out_dir} for create a FBX files")
+        Path(out_dir, f"arkit_order_{USER_UNIQUE_ID}.json").write_text(json.dumps(ARKIT_ORDER, indent=2))   
         
         ###Return adress to texture files and texture file name
-        return (os.path.join(out_dir, f"neutral__{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
+        return (os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
         
-
-
     def export_from_objs_to_fbx(self, output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
         # CONFIG
         IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
-        OUT_FBX = IN_DIR / "arkit_52_animation.fbx"
+        OUT_FBX = IN_DIR / f"arkit_52_animation_{USER_UNIQUE_ID}.fbx"
+        print(f"The FBX file will be {OUT_FBX}")
         SCENE_FPS = 30
         
         TEXTURE_DIR = Path(texture_files_dir if texture_files_dir != '' else IN_DIR)  # where the texture files are
     
-        #Scene Cleanup: All objects in the default scene (camera, light, cube) 
-        # are removed to start with a clean scene.
-        if bpy.ops.object.mode_set.poll():
-          bpy.ops.object.mode_set(mode='OBJECT')
+        try:
+            #Scene Cleanup: All objects in the default scene (camera, light, cube) 
+            # are removed to start with a clean scene.
+            print("---- Blender set mode for create FBX -------")
 
-        # Select all objects in the scene.
-        bpy.ops.object.select_all(action='SELECT')
+            # if bpy.ops.object.mode_set.poll():
+            #    bpy.ops.object.mode_set(mode='OBJECT')
 
-        # Delete the selected objects.
-        bpy.ops.object.delete()
-        
-        #--------------------------------------------------------
+            print("---- Blender set mode for create FBX  SELECT-------")
+            # Select all objects in the scene.
+            # bpy.ops.object.select_all(action='SELECT')
 
-        bpy.ops.wm.read_homefile(use_empty=True)
-        bpy.context.scene.render.fps = SCENE_FPS
-
-        neutral_path = IN_DIR / f"neutral__{USER_UNIQUE_ID}.obj"
-        assert neutral_path.exists(), f"Missing {neutral_path}"
-        # Import neutral mesh
-        #bpy.ops.import_scene.obj(filepath=str(neutral_path))
-        
-        # texture_file = TEXTURE_DIR / texture_filename
-        # assert texture_file.exists(), f"Missing texture file in {texture_file}"
-        # print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
-    
-        # # Copy file from texture_file to IN_DIR
-        # dest_texture_path = IN_DIR / "neutral.png"
-        # shutil.copy(str(texture_file), str(dest_texture_path))     
-        
-
-        #bpy.ops.wm.obj_import(filepath=str(neutral_path))
-        #filter_image = True
-    
-        bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
-        
-        #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
-        
-        # Assigns the material to the active object.
-        #active_object = bpy.context.active_object
-        #if active_object and active_object.type == 'MESH':
-        #  new_material = create_textured_material("DECA_Material", str(texture_file))
-        
-    # Delete existing material slots and add a new one.
-        #active_object.data.materials.clear()
-        #active_object.data.materials.append(new_material)
-        
-
-        obj = bpy.context.selected_objects[0]
-        obj.name = "Head"
-        bpy.context.view_layer.objects.active = obj
-        # Ensure a Basis key exists
-        if not obj.data.shape_keys:
-            obj.shape_key_add(name="Basis", from_mix=False)
-
-        # Load ARKit order
-        ARKIT_ORDER = json.loads((IN_DIR/"arkit_order.json").read_text())
-
-        # For each pose OBJ, add a shape key from it
-        shape_key_names = []
-        for i, name in enumerate(ARKIT_ORDER, start=1):
-            #blandshape_filename = f"{i:02d}_{name}.obj"
-            blandshape_filename = f"{name}_neutral.obj"
+            # Delete the selected objects.
+            # bpy.ops.object.delete()
             
-            blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
+            print("---- Blender set mode for create FBX  DELETE-------")
+            #--------------------------------------------------------
+            try:
+                  # intentamos leer el homefile
+              print("attempting to read homefile...")
+              bpy.ops.wm.read_factory_settings()
+              #bpy.ops.wm.read_homefile(use_empty=True)
+              #bpy.ops.wm.read_factory_settings(use_user_default_startup=True)
+              bpy.ops.wm.new_file_main(confirm_prompt=False, use_empty=True)
+            except TypeError as e:
+                print(f"caught a type error: {e}")
+            except RuntimeError as e:
+                 # a runtimeerror might indicate a blender internal error that python can catch
+                 print(f"caught a runtime error during homefile read: {e}")
+                 print("this might indicate issues with the homefile itself or an internal blender problem.")
+            except Exception as e:
+                 # this will catch any other unexpected errors
+                 print(f"an unexpected error occurred: {e}")
+                 print("blender task failed due to an unknown issue.")
+            finally:
+               print("finished trying the blender task.")
+             
+            print("---- Blender set mode for create FBX  Home File start -------")
             
-            path_detailed = Path(TEXTURE_DIR) / blandshape_filename_detailed
+            bpy.context.scene.render.fps = SCENE_FPS
+
+            print("---- Blender set mode for create FBX  CONFIGURE-------")
+
+
+            neutral_path = IN_DIR / f"neutral_{USER_UNIQUE_ID}.obj"
+
+            if not neutral_path.exists():
+                print(f"The neutral obj or principal file in {neutral_path} no exits")
+
+            assert neutral_path.exists(), f"Missing {neutral_path}"
+            # Import neutral mesh
+            #bpy.ops.import_scene.obj(filepath=str(neutral_path))
             
-            print(f"Read detailed failed from => {path_detailed}")
-            
-            #Using obj detailed filename
+            # texture_file = TEXTURE_DIR / texture_filename
+            # assert texture_file.exists(), f"Missing texture file in {texture_file}"
+            # print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
+        
+            # # Copy file from texture_file to IN_DIR
+            # dest_texture_path = IN_DIR / "neutral.png"
+            # shutil.copy(str(texture_file), str(dest_texture_path))     
             
 
-            path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
-            #bpy.ops.import_scene.obj(filepath=str(path))
+            #bpy.ops.wm.obj_import(filepath=str(neutral_path))
+            #filter_image = True
 
-            ######################################################## 
-            #
-            bpy.ops.wm.obj_import(filepath=str(path))
-            #
-            ########################################################
-            #
-            ## Load from DECA detailed obj file
-            #
-            #bpy.ops.wm.obj_import(filepath=str(path_detailed))
-            #
-            #
-            ########################################################
+            print("---------------------------------------------------------")
+        
+            bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
+            
+            #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
+            
+            # Assigns the material to the active object.
+            #active_object = bpy.context.active_object
+            #if active_object and active_object.type == 'MESH':
+            #  new_material = create_textured_material("DECA_Material", str(texture_file))
+            
+        # Delete existing material slots and add a new one.
+            #active_object.data.materials.clear()
+            #active_object.data.materials.append(new_material)
+            
 
-            poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
-            # Add shape key from the poser geometry
-            sk = obj.shape_key_add(name=name, from_mix=False)
-            # Transfer vertex positions
-            obj.data.shape_keys.key_blocks[name].value = 0.0
-            # Copy verts (assumes identical topology)
-            for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
-                sk.data[v_dst.index].co = v_src.co
-            # Cleanup poser mesh
-            bpy.data.objects.remove(poser, do_unlink=True)
-            shape_key_names.append(name)
+            obj = bpy.context.selected_objects[0]
+            obj.name = "Head"
+            bpy.context.view_layer.objects.active = obj
+            # Ensure a Basis key exists
+            if not obj.data.shape_keys:
+                obj.shape_key_add(name="Basis", from_mix=False)
 
-        # Create 52-frame animation, one key per frame
-        scene = bpy.context.scene
-        scene.frame_start = 1
-        scene.frame_end = 52
+            # Load ARKit order
+            ARKIT_ORDER = json.loads((IN_DIR/f"arkit_order_{USER_UNIQUE_ID}.json").read_text())
 
-        for f, name in enumerate(shape_key_names, start=1):
-            # zero all keys
-            for kb in obj.data.shape_keys.key_blocks:
-                kb.value = 0.0
-            obj.data.shape_keys.key_blocks[name].value = 1.0
-            obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
+            # For each pose OBJ, add a shape key from it
+            shape_key_names = []
+            for i, name in enumerate(ARKIT_ORDER, start=1):
+                #blandshape_filename = f"{i:02d}_{name}.obj"
+                blandshape_filename = f"{name}_neutral.obj"
 
-#
+                blandshape_deca_filename = f"{name}_neutral_{USER_UNIQUE_ID}.obj"
+                
+                blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
+
+                blandshape_deca_filename_detailed = blandshape_deca_filename.replace('.obj', '_detail.obj')
+                
+                path_detailed = Path(TEXTURE_DIR) / blandshape_filename_detailed
+                
+                print(f"Created detailed failed from => {path_detailed}")
+                
+                #Using obj detailed filename
+                
+
+                path = IN_DIR / BLANDESHAPE_DIRECOTRY_NAME / blandshape_filename
+
+                path_detailed = IN_DIR / f"neutral_face_{USER_UNIQUE_ID}" / blandshape_deca_filename_detailed
+
+                assert path_detailed.exists(), f"Missing {path_detailed}"
+                
+                #bpy.ops.import_scene.obj(filepath=str(path))
+
+                ######################################################## 
+                #
+            
+                #bpy.ops.wm.obj_import(filepath=str(path))
+
+                bpy.ops.wm.obj_import(filepath=str(path_detailed))
+
+                print(f"Read detailed obj failed in ==> {path_detailed}")
+            
+                #
+                ########################################################
+                #
+                ## Load from DECA detailed obj file
+                #
+                #bpy.ops.wm.obj_import(filepath=str(path_detailed))
+                #
+                #
+                ########################################################
+
+                poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
+                # Add shape key from the poser geometry
+                sk = obj.shape_key_add(name=name, from_mix=False)
+                # Transfer vertex positions
+                obj.data.shape_keys.key_blocks[name].value = 0.0
+                # Copy verts (assumes identical topology)
+                for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
+                    sk.data[v_dst.index].co = v_src.co
+                # Cleanup poser mesh
+                bpy.data.objects.remove(poser, do_unlink=True)
+                shape_key_names.append(name)
+
+            # Create 52-frame animation, one key per frame
+            scene = bpy.context.scene
+            scene.frame_start = 1
+            scene.frame_end = 52
+
+            for f, name in enumerate(shape_key_names, start=1):
+                # zero all keys
+                for kb in obj.data.shape_keys.key_blocks:
+                    kb.value = 0.0
+                obj.data.shape_keys.key_blocks[name].value = 1.0
+                obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
+
+                # FBX export (axes for Unreal: -Z forward, Y up)
+            bpy.ops.export_scene.fbx(
+                filepath=str(OUT_FBX),
+                use_selection=False,
+                add_leaf_bones=False,
+                bake_anim=True,
+                bake_anim_use_all_bones=False,
+                bake_anim_use_nla_strips=False,
+                bake_anim_force_startend_keying=True,
+                apply_scale_options='FBX_SCALE_ALL',
+                axis_forward='-Z', axis_up='Y'
+            )
+        
+            print(f"Generated 52 pose meshes in: {OUT_FBX} for create a FBX files")
+        except Exception as e:
+        # this will catch any other unexpected errors
+          print(f"an unexpected error occurred: {e}")
+          print("blender task failed due to an unknown issue.")
+        finally:
+        # this block always runs, whether an error occurred or not
+          print("finished trying the blender task.")
+
+
     def process_image_to_3d_object(self, input_path, input_type, output_dir):
             # input_path = args.input_path
             # input_type = args.input_type
-            AVATAR_OUTPUT_DIR = args.output_dir
+            AVATAR_OUTPUT_DIR = output_dir
 
             print(f"Input path: {input_path}")
             print(f"Input type: {input_type}")
@@ -765,6 +836,7 @@ class tracker3DImage:
                 
                     ###Get sesion_id for unique name
                     file_name = os.path.splitext(os.path.basename(input_path))[0]
+                    global USER_UNIQUE_ID
                     
                     USER_UNIQUE_ID = file_name.replace("neutral_face_", "").replace("neutral_face_trasformed_", "")
                     print(f" The user unique id is : {USER_UNIQUE_ID}")
@@ -790,6 +862,7 @@ class tracker3DImage:
             neutral_obj_address, texture_file_dir, texture_filename = self.main_another_example(img_path = direccion_png)
         
         #Create fbx file with information
+            #print("Not process SECOND PART")
             self.export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
                                     texture_files_dir = texture_file_dir, 
                                     texture_filename = texture_filename, 
