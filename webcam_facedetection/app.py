@@ -62,6 +62,12 @@ MESSAGE_EXCEPTION_NEUTRAL_IMAGES_NOT_EXIST = 'Not exist imagen info in address: 
 MESSAGE_ERROR_IN_PROCESS_TRANSFORMED = 'Error in process AI image transformed.'
 MESSAGE_NOT_IMAGES_AVATAR = 'Error not image for avatar creations'
 MESSAGE_CUOTA_EXCEEDED = 'Gemini API quota exceeded.'
+SHOWING_FACE = 1
+
+ERROR_MESSAGE_MORE_ONE_FACE = "There are more than one face or none \
+    in your picture, please fixed image or video"
+
+ERROR_MESSAGE_IMAGE_NOT_NEUTRAL = "Not image in neutral face position"
 
 streaming_active = True
 
@@ -223,7 +229,7 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         #print(f"Execution python script result:\n\n {result.stdout}")
         print(f"Execution python script result:\n\n {result}")
         #output = json.loads(result.stdout)
-        return { 'output': 'Call python scripts', 'process_time': f"{elapsed_time:.2f} seconds", 'fbx file address': result}
+        return { 'output': 'Call python scripts', 'process_time': f"{elapsed_time:.2f} seconds", 'fbx_file_address': result}
     except subprocess.CalledProcessError as e:
         return {"error": f"Error running avatar script: {e.stderr}"}
     except json.JSONDecodeError:
@@ -232,7 +238,7 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         return {"error": f"Avatar script not found at {AVATAR_SCRIPT_PATH}"}
 
 
-def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
+def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Request ) -> tuple[Dict[str, Any], Any]:
     if image is None:
         gr.Error ("error : No frame provided for avatar creation")
     
@@ -255,10 +261,10 @@ def create_avatar_image(image: np.ndarray, session_id: Optional[str], req: gr.Re
     
     result = run_avatar_script(temp_img_path, "image")
     #os.remove(temp_img_path)  # Clean up temporary file
-    return result
+    return result, result['fbx_file_address']
 
 
-def create_avatar_video(video_path: str, max_dimension: int, session_id: Optional[str], req: gr.Request ) -> Dict[str, Any]:
+def create_avatar_video(video_path: str, max_dimension: int, session_id: Optional[str], req: gr.Request ) -> tuple[Dict[str, Any], Any]:
     list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
     
     if len(list_of_files) == 0:
@@ -277,10 +283,10 @@ def create_avatar_video(video_path: str, max_dimension: int, session_id: Optiona
     
         # For video, the path is already a file path, no need to save temporarily
         result = run_avatar_script(video_path, "video")
-        return result
+        return result, result['fbx_file_address']
 
 
-def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.Request ) -> Dict[str, Any]:
+def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.Request ) -> tuple[Dict[str, Any], Any]:
     if frame is None:
         print ("error : No frame provided for avatar creation")
     
@@ -308,12 +314,7 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
     else:
        result = run_avatar_script(temp_frame_path, "webcam_frame")
     #os.remove(temp_frame_path)  # Clean up temporary file
-    return result, result['fbx_images_address']
-SHOWING_FACE = 1
-
-ERROR_MESSAGE_MORE_ONE_FACE = "There are more than one face or none \
-    in your picture, please fixed image or video"
-
+    return result, result['fbx_file_address']
 
 def process_image(
     image: np.ndarray,
@@ -386,6 +387,9 @@ def process_landmarker_image(
     
     if SHOWING_FACE == 0 or SHOWING_FACE > 1:
        raise gr.Error(ERROR_MESSAGE_MORE_ONE_FACE) 
+
+    if not result.is_neutral_face:
+        raise gr.Error(ERROR_MESSAGE_IMAGE_NOT_NEUTRAL) 
     
     return result.annotated_image_rgb, {
         "face_landmarks": SHOWING_FACE,
@@ -656,7 +660,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
     #             image_mode="RGB",
     #         )
     #         cam_out = gr.Image(type="numpy", label="Salida", interactive=False)
-    #     cam_json = gr.JSON(label="Métricas (en vivo)")
+    #     cam_json = gr.JSON(label="Metrics (live)")
 
     #     cam_in.stream(
     #         fn=process_stream,
@@ -686,16 +690,24 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
 
             land_img_btn = gr.Button("Process image with Landmarker")
             land_img_btn.click(
-                fn=process_landmarker_image,
+                fn = process_landmarker_image,
                 inputs=[land_img_in, session_id],
                 outputs=[land_img_out, land_img_json],
             )
             
             create_avatar_img_btn = gr.Button("Create avatar")
+            
+            avatar_creation_json = gr.JSON(label="Metrics (live)")
+
+            download_output = gr.File(
+                label ="⬇️ Download FBX file",
+                visible = True,
+                interactive = False
+            )
             create_avatar_img_btn.click(
                 fn=create_avatar_image,
                 inputs=[land_img_in, session_id],
-                outputs=[land_img_json],
+                outputs=[land_img_json, download_output],
             )
         with gr.Tab("Video Landmarker"):
             with gr.Row():
@@ -711,10 +723,17 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                 outputs=[land_vid_out, land_vid_json],
             )
             create_avatar_vid_btn = gr.Button("Create avatar")
+            avatar_creation_json = gr.JSON(label="Metrics (live)")
+
+            download_output = gr.File(
+                label ="⬇️ Download FBX file",
+                visible = True,
+                interactive = False
+            )
             create_avatar_vid_btn.click(
                 fn=create_avatar_video,
                 inputs=[land_vid_in, land_max_dim, session_id],
-                outputs=[land_vid_json],
+                outputs=[avatar_creation_json, download_output],
             )
         
         with gr.Tab("Webcam Landmarker"):
@@ -732,31 +751,22 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                     land_single_face_label = gr.Label(label="Single Face Detected", value="No", show_label=True)
                 with gr.Column():
                    land_cam_out = gr.Image(type="numpy", label="Salida", interactive=False)               
-                   land_cam_json = gr.JSON(label="Métricas (en vivo)")
+                   land_cam_json = gr.JSON(label="Metrics (live)")
           
-           
-            #land_neutral_label = gr.Label(label="Neutral Face Detected", value="No", show_label=True)
             
             land_cam_in.stream(
                 fn=process_landmarker_stream,
                 inputs=[land_cam_in, session_id],
                  outputs=[land_cam_out, land_cam_json,  land_single_face_label],
-                #outputs=[land_cam_out, land_cam_json, land_neutral_label, land_single_face_label],
             )
 
-            # Call stop_streaming_handler when the user stops recording
-            #land_cam_in.stop(fn = stop_streaming_process)
 
-            # land_cam_in.release(
-            #     fn=clear_components,
-            #     inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label]
-            # )
             clear_manual_btn.click(clear_components, inputs=[],  outputs=[land_cam_out, land_cam_json, land_single_face_label])
 
             create_avatar_webcam_btn = gr.Button("Create avatar")
-            avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
+            avatar_creation_json = gr.JSON(label="Metrics (live)")
             download_output = gr.File(
-                label ="⬇️ Descargar archivo FBX",
+                label ="⬇️ Download FBX file",
                 visible = True,
                 interactive = False
             )
@@ -782,7 +792,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
 
             model_in = gr.Model3D(
                 label="3D model",
-                interactive=True,
+                interactive=False,
                 #value = check_neutral_3d_image_exist(session_id, False),
             )
 
@@ -798,14 +808,8 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         with gr.Row():
             with gr.Column():
                neutral_image_path = NEUTRAL_IMAGES_ADDRESS + os.sep + f"neutral_face_{session_id}.jpg"
-               print (f"Neutral image path for transform => {neutral_image_path}")
-              
-            #    img_transform_in = gr.Image(
-            #                             type ="numpy", 
-            #                             label ="Input Image", 
-            #                             sources =["upload", "clipboard"], 
-            #                             image_mode="RGB",                                    
-            #                         )
+               print (f"Neutral image path for transform => {neutral_image_path}")        
+
                     
                img_transform_in = gr.Image(
                                         type ="numpy", 
@@ -816,17 +820,20 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
                imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[img_transform_in])
-            #    if not os.path.exists(neutral_image_path):
-            #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
               
             with gr.Column():        
                 img_transform_out = gr.Image(type="numpy", label="Transformed Image", interactive=False)
 
         with gr.Row():
-            generate_image_btn = gr.Button("Generate Image")
+            generate_image_btn = gr.Button("Generate image with AI Tool (ex: Nano Banana)")
             create_avatar_transformed_btn = gr.Button("Create Avatar")
         with gr.Row():
-          avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
+          avatar_creation_json = gr.JSON(label="Metrics (live)")
+          download_output = gr.File(
+                label ="⬇️ Download FBX file",
+                visible = True,
+                interactive = False
+            )
         
         generate_image_btn.click(
             fn=transform_image_with_gemini,
@@ -837,13 +844,12 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         create_avatar_transformed_btn.click(
                 fn = unavailable_botton,
                 inputs = None,
-                outputs = generate_image_btn,
-                # 'queue=False' asegura que esta acción se ejecute de inmediato, no en la cola
+                outputs = generate_image_btn,               
                 queue=False
         ).then(  
                 fn = create_avatar_from_transformed_image,
                 inputs=[img_transform_out,session_id],
-                outputs=[],
+                outputs=[avatar_creation_json, download_output],
                 queue=True
         ).then(
             fn= available_botton,
