@@ -864,6 +864,7 @@ class Tracker3DImage:
             )
         
             print(f"Generated 52 pose meshes in: {OUT_FBX} for create a FBX files")
+            
         except Exception as e:
         # this will catch any other unexpected errors
           print(f"an unexpected error occurred: {e}")

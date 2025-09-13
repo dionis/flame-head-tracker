@@ -156,8 +156,11 @@ def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional
 
         ##Save images in component in neutral_images
          pil_image = Image.fromarray(image)    
-         filename = f"neutral_face_trasformed_{session_id}.jpg"      
-         temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, filename)         
+         filename = f"neutral_face_{session_id}.jpg"      
+         temp_img_path = os.path.join(NEUTRAL_IMAGES_ADDRESS, filename)  
+
+         if os.path.exists(temp_img_path):
+            os.remove(temp_img_path)     
 
          pil_image.save(temp_img_path)
     
@@ -753,8 +756,9 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             create_avatar_webcam_btn = gr.Button("Create avatar")
             avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
             download_output = gr.File(
-                label="⬇️ Descargar archivo FBX",
-                visible=True
+                label ="⬇️ Descargar archivo FBX",
+                visible = True,
+                interactive = False
             )
             create_avatar_webcam_btn.click(
                 fn = create_avatar_webcam,
@@ -821,7 +825,9 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         with gr.Row():
             generate_image_btn = gr.Button("Generate Image")
             create_avatar_transformed_btn = gr.Button("Create Avatar")
-
+        with gr.Row():
+          avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
+        
         generate_image_btn.click(
             fn=transform_image_with_gemini,
             inputs=[img_transform_in, img_transform_prompt],
