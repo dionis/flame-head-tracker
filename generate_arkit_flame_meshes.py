@@ -639,36 +639,36 @@ class Tracker3DImage:
             print("---- Blender set mode for create FBX -------")
 
             # if bpy.ops.object.mode_set.poll():
-            #    bpy.ops.object.mode_set(mode='OBJECT')
+            #     bpy.ops.object.mode_set(mode='OBJECT')
 
             print("---- Blender set mode for create FBX  SELECT-------")
             # Select all objects in the scene.
-            # bpy.ops.object.select_all(action='SELECT')
+            bpy.ops.object.select_all(action='SELECT')
 
             # Delete the selected objects.
-            # bpy.ops.object.delete()
+            bpy.ops.object.delete()
             
             print("---- Blender set mode for create FBX  DELETE-------")
             #--------------------------------------------------------
-            try:
-                  # intentamos leer el homefile
-              print("attempting to read homefile...")
-              bpy.ops.wm.read_factory_settings()
-              #bpy.ops.wm.read_homefile(use_empty=True)
-              #bpy.ops.wm.read_factory_settings(use_user_default_startup=True)
-              bpy.ops.wm.new_file_main(confirm_prompt=False, use_empty=True)
-            except TypeError as e:
-                print(f"caught a type error: {e}")
-            except RuntimeError as e:
-                 # a runtimeerror might indicate a blender internal error that python can catch
-                 print(f"caught a runtime error during homefile read: {e}")
-                 print("this might indicate issues with the homefile itself or an internal blender problem.")
-            except Exception as e:
-                 # this will catch any other unexpected errors
-                 print(f"an unexpected error occurred: {e}")
-                 print("blender task failed due to an unknown issue.")
-            finally:
-               print("finished trying the blender task.")
+            # try:
+            #       # intentamos leer el homefile
+            #   print("attempting to read homefile...")
+            #   bpy.ops.wm.read_factory_settings()
+            #   #bpy.ops.wm.read_homefile(use_empty=True)
+            #   #bpy.ops.wm.read_factory_settings(use_user_default_startup=True)
+            #   bpy.ops.wm.new_file_main(confirm_prompt=False, use_empty=True)
+            # except TypeError as e:
+            #     print(f"caught a type error: {e}")
+            # except RuntimeError as e:
+            #      # a runtimeerror might indicate a blender internal error that python can catch
+            #      print(f"caught a runtime error during homefile read: {e}")
+            #      print("this might indicate issues with the homefile itself or an internal blender problem.")
+            # except Exception as e:
+            #      # this will catch any other unexpected errors
+            #      print(f"an unexpected error occurred: {e}")
+            #      print("blender task failed due to an unknown issue.")
+            # finally:
+            #   print("finished trying the blender task.")
              
             print("---- Blender set mode for create FBX  Home File start -------")
             
@@ -698,9 +698,11 @@ class Tracker3DImage:
             #bpy.ops.wm.obj_import(filepath=str(neutral_path))
             #filter_image = True
 
-            print("---------------------------------------------------------")
+            print("---------------------- Start Load -----------------------------------")
         
-            bpy.ops.wm.obj_import(filepath=str(neutral_path),  filter_image = True)
+            bpy.ops.wm.obj_import(filepath=str(neutral_path)) 
+
+            print("--------------------Imported neutral obj-----------------------------------")
             
             #bpy.ops.import_scene.obj(filepath=str(neutral_path), use_edges=True, use_image_search=True)
             
@@ -720,6 +722,8 @@ class Tracker3DImage:
             # Ensure a Basis key exists
             if not obj.data.shape_keys:
                 obj.shape_key_add(name="Basis", from_mix=False)
+
+            print("--------------------Set neutral obj as Basic ----------------------------------")
 
             # Load ARKit order
             ARKIT_ORDER = json.loads((IN_DIR/f"arkit_order_{USER_UNIQUE_ID}.json").read_text())
