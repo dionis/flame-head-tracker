@@ -31,6 +31,7 @@ sys.path.append(MP_TO_FLAME_PATH)
 sys.path.append("/teamspace/studios/this_studio/flame-head-tracker")
 
 import trimesh
+from mathutils import Vector
 
 # DECA / FLAME
 #from decalib.deca import DECA
@@ -624,6 +625,39 @@ class Tracker3DImage:
         ###Return adress to texture files and texture file name
         return (os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
         
+    
+    def load_obj_vertices_faces(self, path: Path):
+        m = trimesh.load(path.as_posix(), process=False)
+        if isinstance(m, trimesh.Scene):
+            # If the OBJ is a scene, merge geometries (shouldn't happen with our exports)
+            m = trimesh.util.concatenate(tuple(g for g in m.geometry.values()))
+        verts = m.vertices.tolist()
+        faces = m.faces.tolist()
+        return verts, faces
+
+    def make_mesh_object(self, name: str, verts, faces):
+        me = bpy.data.meshes.new(name + "Mesh")
+        me.from_pydata(verts, [], faces)
+        me.update()
+        obj = bpy.data.objects.new(name, me)
+        bpy.context.scene.collection.objects.link(obj)
+        return obj
+
+    def set_shape_key_from_vertices(self, obj: bpy.types.Object, key_name: str, verts):
+        # Ensure Basis exists
+        if not obj.data.shape_keys:
+            obj.shape_key_add(name="Basis", from_mix=False)
+        sk = obj.shape_key_add(name=key_name, from_mix=False)
+        kb = obj.data.shape_keys.key_blocks[key_name]
+        for i, v in enumerate(verts):
+            kb.data[i].co = Vector(v)
+        kb.value = 0.0
+
+    def zero_all_keys(self, obj: bpy.types.Object):
+        if obj.data.shape_keys:
+            for kb in obj.data.shape_keys.key_blocks:
+                kb.value = 0.0
+    
     def export_from_objs_to_fbx(self, output_dir = 'out_arkit_flame', texture_files_dir = '', texture_filename = '', blandeshape_directory = ''):
         # CONFIG
         IN_DIR = Path(output_dir if output_dir == '' or output_dir == None else "out_arkit_flame")       # where the OBJs are
@@ -700,7 +734,13 @@ class Tracker3DImage:
 
             print("---------------------- Start Load -----------------------------------")
         
-            bpy.ops.wm.obj_import(filepath=str(neutral_path)) 
+            #bpy.ops.wm.obj_import(filepath=str(neutral_path)) 
+
+            # Build base mesh from neutral OBJ (no import operator)
+            base_verts, base_faces = self.load_obj_vertices_faces(neutral_path)
+            head = self.make_mesh_object("Head", base_verts, base_faces)
+            bpy.context.view_layer.objects.active = head
+
 
             print("--------------------Imported neutral obj-----------------------------------")
             
@@ -716,12 +756,12 @@ class Tracker3DImage:
             #active_object.data.materials.append(new_material)
             
 
-            obj = bpy.context.selected_objects[0]
-            obj.name = "Head"
-            bpy.context.view_layer.objects.active = obj
+            #obj = bpy.context.selected_objects[0]
+            #obj.name = "Head"
+            #bpy.context.view_layer.objects.active = obj
             # Ensure a Basis key exists
-            if not obj.data.shape_keys:
-                obj.shape_key_add(name="Basis", from_mix=False)
+            # if not obj.data.shape_keys:
+            #     obj.shape_key_add(name="Basis", from_mix=False)
 
             print("--------------------Set neutral obj as Basic ----------------------------------")
 
@@ -734,7 +774,7 @@ class Tracker3DImage:
                 #blandshape_filename = f"{i:02d}_{name}.obj"
                 blandshape_filename = f"{name}_neutral.obj"
 
-                blandshape_deca_filename = f"{name}_neutral_{USER_UNIQUE_ID}.obj"
+                blandshape_deca_filename = f"{name}_neutral__{USER_UNIQUE_ID}.obj"
                 
                 blandshape_filename_detailed = blandshape_filename.replace('.obj', '_detail.obj')
 
@@ -760,7 +800,12 @@ class Tracker3DImage:
             
                 #bpy.ops.wm.obj_import(filepath=str(path))
 
-                bpy.ops.wm.obj_import(filepath=str(path_detailed))
+                #bpy.ops.wm.obj_import(filepath=str(path_detailed))
+
+                pose_verts, pose_faces = self.load_obj_vertices_faces(path_detailed)
+                if len(pose_verts) != len(base_verts) or pose_faces != base_faces:
+                    raise ValueError(f"Topology mismatch in {path_detailed}")
+                self.set_shape_key_from_vertices(head, name, pose_verts)
 
                 print(f"Read detailed obj failed in ==> {path_detailed}")
             
@@ -774,29 +819,36 @@ class Tracker3DImage:
                 #
                 ########################################################
 
-                poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
-                # Add shape key from the poser geometry
-                sk = obj.shape_key_add(name=name, from_mix=False)
-                # Transfer vertex positions
-                obj.data.shape_keys.key_blocks[name].value = 0.0
-                # Copy verts (assumes identical topology)
-                for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
-                    sk.data[v_dst.index].co = v_src.co
-                # Cleanup poser mesh
-                bpy.data.objects.remove(poser, do_unlink=True)
-                shape_key_names.append(name)
+                # poser = [o for o in bpy.context.selected_objects if o.type == 'MESH'][-1]
+                # # Add shape key from the poser geometry
+                # sk = obj.shape_key_add(name=name, from_mix=False)
+                # # Transfer vertex positions
+                # obj.data.shape_keys.key_blocks[name].value = 0.0
+                # # Copy verts (assumes identical topology)
+                # for v_src, v_dst in zip(poser.data.vertices, obj.data.vertices):
+                #     sk.data[v_dst.index].co = v_src.co
+                # # Cleanup poser mesh
+                # bpy.data.objects.remove(poser, do_unlink=True)
+                # shape_key_names.append(name)
 
             # Create 52-frame animation, one key per frame
-            scene = bpy.context.scene
-            scene.frame_start = 1
-            scene.frame_end = 52
+            # scene = bpy.context.scene
+            # scene.frame_start = 1
+            # scene.frame_end = 52
 
+            # for f, name in enumerate(shape_key_names, start=1):
+            #     # zero all keys
+            #     for kb in obj.data.shape_keys.key_blocks:
+            #         kb.value = 0.0
+            #     obj.data.shape_keys.key_blocks[name].value = 1.0
+            #     obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
+
+             # Animate: one frame per ARKit key at value=1.0
             for f, name in enumerate(shape_key_names, start=1):
-                # zero all keys
-                for kb in obj.data.shape_keys.key_blocks:
-                    kb.value = 0.0
-                obj.data.shape_keys.key_blocks[name].value = 1.0
-                obj.data.shape_keys.key_blocks[name].keyframe_insert(data_path="value", frame=f)
+                self.zero_all_keys(head)
+                kb = head.data.shape_keys.key_blocks[name]
+                kb.value = 1.0
+                kb.keyframe_insert(data_path="value", frame=f)
 
                 # FBX export (axes for Unreal: -Z forward, Y up)
             bpy.ops.export_scene.fbx(

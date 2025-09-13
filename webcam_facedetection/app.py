@@ -18,7 +18,7 @@ from utils_tool.face_landmarker_analyzer import FaceLandmarkerAnalyzer, FaceLand
 import random
 sys.path.append("/teamspace/studios/this_studio/DECA")
 from decalib.datasets import datasets
-
+import time
 sys.path.append("/teamspace/studios/this_studio/flame-head-tracker")
 #sys.path.append("/teamspace/studios/this_studio/flame-head-tracker/utils")
 
@@ -74,6 +74,7 @@ streaming_active = True
 ####################################################################
 def transform_image_with_gemini(image_array: np.ndarray, prompt: str) -> np.ndarray:
 #Tuple[np.ndarray, Dict[str, Any]]:
+    print(f"The Google API KEY {GOOGLE_API_KEY}")
     if GOOGLE_API_KEY is None:
         return None
         #, {"error": "Gemini API key not configured. Please set GOOGLE_API_KEY environment variable."}
@@ -150,8 +151,8 @@ def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional
             raise gr.Error( "No face found in the image")
          elif len(result.face_landmarks) > 1:
             raise gr.Error( "There are more than one face found in the image")
-         elif result.is_neutral_face == False:
-            raise gr.Error( "The face is not in the neutral position")
+        #  elif result.is_neutral_face == False:
+        #     raise gr.Error( "The face is not in the neutral position")
 
         ##Save images in component in neutral_images
          pil_image = Image.fromarray(image)    
@@ -203,16 +204,23 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
 
         print("<=== Execute task files ====>")
         #result = subprocess.run(command, capture_output=True, text=True, check=True)
+        start_time = time.time() 
+
         result = converter.process_image_to_3d_object(
             input_path = input_path,
             input_type = input_type,
             output_dir = AVATAR_OUTPUT_DIR
         ) 
+      
+        end_time = time.time() # record the end time
+
+        elapsed_time = end_time - start_time # calculate the elapsed time
+        print(f"time taken to run load_image_and_run: {elapsed_time:.2f} seconds\n\n") # print the elapsed time
 
         #print(f"Execution python script result:\n\n {result.stdout}")
         print(f"Execution python script result:\n\n {result}")
         #output = json.loads(result.stdout)
-        return { 'output': 'Call python scripts'}
+        return { 'output': 'Call python scripts', 'process_time': f"{elapsed_time:.2f} seconds"}
     except subprocess.CalledProcessError as e:
         return {"error": f"Error running avatar script: {e.stderr}"}
     except json.JSONDecodeError:
@@ -280,7 +288,7 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
     # Save the webcam frame to a temporary file
     if os.path.exists(NEUTRAL_IMAGES_ADDRESS):
          list_of_files =  os.listdir(NEUTRAL_IMAGES_ADDRESS)
-         if len(list_of_files) >= 1: #Only a face imafes for get information
+         if len(list_of_files) >= 1: #Only a face for get information
             output_dir = ""
             for file_name in list_of_files:
               if f"neutral_face_{session_id}" in file_name:
@@ -462,6 +470,8 @@ def delete_directory(req: gr.Request):
             file_to_delete = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, f)
             if os.path.isfile(file_to_delete):
               os.remove(file_to_delete)
+            if os.path.isdir(file_to_delete):
+                shutil.rmtree(file_to_delete)
     
     #user_dir: Path = current_dir / str(req.session_hash)
     #shutil.rmtree(str(user_dir))
@@ -550,7 +560,10 @@ def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
     else: #Only a face imafes for get information
         for file_name in list_of_files:
              if f"neutral_{session_id}" in file_name:
+                print(f"find 3D objfile {file_name}")
                 return os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS, file_name)
+             else:
+                print(f"File with not patern {file_name}")
     
     if validate: 
          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
@@ -739,14 +752,18 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
 
             create_avatar_webcam_btn = gr.Button("Create avatar")
             avatar_creation_json = gr.JSON(label="Métricas (en vivo)")
+            download_output = gr.File(
+                label="⬇️ Descargar archivo FBX",
+                visible=True
+            )
             create_avatar_webcam_btn.click(
-                fn=create_avatar_webcam,
+                fn = create_avatar_webcam,
                 inputs=[land_cam_in, session_id],
                 outputs=[avatar_creation_json],
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
-        #threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[])  
+     
      
         gr.Markdown(
             """
@@ -762,8 +779,10 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             model_in = gr.Model3D(
                 label="3D model",
                 interactive=True,
-                value = check_neutral_3d_image_exist(session_id, False),
+                #value = check_neutral_3d_image_exist(session_id, False),
             )
+
+            threeDVisualizer_tab.select(check_neutral_3d_image_exist, inputs=[session_id], outputs=[model_in])  
             # Add a file upload component for users to upload their own 3D models
             #file_upload = gr.File(label="Upload your own 3D model (OBJ, GLTF/GLB, STL)")
 
@@ -792,7 +811,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                                     )
                img_transform_prompt = gr.Textbox(label="Prompt", placeholder="Describe the transformation...")
                
-               imageTransformer_tab.select(check_neutral_image_exist_aux, inputs=[session_id], outputs=[img_transform_in])
+               imageTransformer_tab.select(check_neutral_image_exist, inputs=[session_id], outputs=[img_transform_in])
             #    if not os.path.exists(neutral_image_path):
             #       raise gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
               
