@@ -864,7 +864,7 @@ class Tracker3DImage:
             )
         
             print(f"Generated 52 pose meshes in: {OUT_FBX} for create a FBX files")
-            
+            return str(OUT_FBX)
         except Exception as e:
         # this will catch any other unexpected errors
           print(f"an unexpected error occurred: {e}")
@@ -918,13 +918,15 @@ class Tracker3DImage:
             
             neutral_obj_address, texture_file_dir, texture_filename = self.main_another_example(img_path = direccion_png)
         
-        #Create fbx file with information
+            #Create fbx file with information
             #print("Not process SECOND PART")
-            self.export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
+            fbx_images_address = self.export_from_objs_to_fbx( output_dir = 'out_arkit_flame', 
                                     texture_files_dir = texture_file_dir, 
                                     texture_filename = texture_filename, 
                                     blandeshape_directory = BLANDESHAPE_DIRECOTRY_NAME
                                     )
+            return fbx_images_address
+                                          
         
 def create_textured_material(material_name, texture_path):
     """

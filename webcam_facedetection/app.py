@@ -223,7 +223,7 @@ def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
         #print(f"Execution python script result:\n\n {result.stdout}")
         print(f"Execution python script result:\n\n {result}")
         #output = json.loads(result.stdout)
-        return { 'output': 'Call python scripts', 'process_time': f"{elapsed_time:.2f} seconds"}
+        return { 'output': 'Call python scripts', 'process_time': f"{elapsed_time:.2f} seconds", 'fbx file address': result}
     except subprocess.CalledProcessError as e:
         return {"error": f"Error running avatar script: {e.stderr}"}
     except json.JSONDecodeError:
@@ -308,7 +308,7 @@ def create_avatar_webcam(frame: np.ndarray, session_id: Optional[str],  req: gr.
     else:
        result = run_avatar_script(temp_frame_path, "webcam_frame")
     #os.remove(temp_frame_path)  # Clean up temporary file
-    return result
+    return result, result['fbx_images_address']
 SHOWING_FACE = 1
 
 ERROR_MESSAGE_MORE_ONE_FACE = "There are more than one face or none \
@@ -763,7 +763,7 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             create_avatar_webcam_btn.click(
                 fn = create_avatar_webcam,
                 inputs=[land_cam_in, session_id],
-                outputs=[avatar_creation_json],
+                outputs=[avatar_creation_json,download_output]
             )
 
     with gr.Tab("Visualizador 3D") as threeDVisualizer_tab: 
