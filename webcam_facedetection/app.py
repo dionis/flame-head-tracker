@@ -1032,14 +1032,14 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                 )
             with gr.Tab("@Hunyuan3D-2.1"):
                 with gr.Row():
-                    trellis_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
-                    trellis_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
-                trellis_btn = gr.Button("Generate 3D Model (TRELLIS)")
-                trellis_model_out = gr.Model3D(label="3D Model Output", interactive=False)
-                trellis_btn.click(
-                    fn=transform_image_with_trellis,
-                    inputs=[trellis_img_in, trellis_prompt],
-                    outputs=[trellis_model_out],
+                    hunyuan3d_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+                    hunyuan3d_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                hunyuan3d_btn = gr.Button("Generate 3D Model (Hunyuan3D-2.1)")
+                hunyuan3d_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                hunyuan3d_btn.click(
+                    fn=transform_image_with_hunyuan3d_2_1,
+                    inputs=[hunyuan3d_img_in, hunyuan3d_prompt],
+                    outputs=[hunyuan3d_model_out],
                 )
 
     # with gr.Tab("Text Example Image Stream") as evaluate_idea:
