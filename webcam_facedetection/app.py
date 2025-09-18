@@ -144,7 +144,7 @@ def available_botton():
     # Devuelve el botón con 'interactive=True'
     return gr.Button(interactive=True)
 
-def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> Dict[str, Any]:
+def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional[str], req: gr.Request) -> tuple[Dict[str, Any], Any]:
     if image is None or image.size == 0:
         raise gr.Error( "No transformed image to create avatar from")   
      # Remove existing files in the output directory
@@ -174,7 +174,7 @@ def create_avatar_from_transformed_image(image: np.ndarray, session_id: Optional
     else:
        raise gr.Error(MESSAGE_ERROR_IN_PROCESS_TRANSFORMED)
     #os.remove(temp_img_path)
-    return result
+    return result, result['fbx_file_address']
 
 
 def run_avatar_script(input_path: str, input_type: str) -> Dict[str, Any]:
@@ -597,7 +597,7 @@ def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
 #     streaming_active = False
 #     print("Stream stopped by user")
 
-with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; }") as demo:
+with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), css=".neutral-face-true { background-color: red !important; } .neutral-face-false { background-color: blue !important; } .single-face-true { background-color: green !important; } .single-face-false { background-color: yellow !important; } .gradio-tabs button { font-weight: bold !important;}") as demo:
    
     session_id = gr.State()
     output = gr.Textbox(label="Session ID")
