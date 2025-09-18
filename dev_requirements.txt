@@ -35,6 +35,7 @@ gradio
 fsspec[gcs]
 gcsfs
 python-dotenv
+request
 ## For unstalling pythorch3d
 #  pip install --extra-index-url https://miropsota.github.io/torch_packages_builder pytorch3d==0.7.8+pt2.5.1cu124
   
