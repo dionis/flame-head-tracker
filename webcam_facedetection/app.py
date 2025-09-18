@@ -576,6 +576,138 @@ def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
+
+def transform_image_with_meshy(image: np.ndarray, prompt: str) -> str:
+    if MESHY_API_KEY is None:
+        raise gr.Error("Meshy API key not configured. Please set MESHY_API_KEY environment variable.")
+    
+    if image is None:
+        raise gr.Error("No image provided for Meshy transformation.")
+
+    # Save the input image to a temporary file
+    temp_img_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    Image.fromarray(image).save(temp_img_file.name)
+    temp_img_file.close()
+
+    base_url = "https://api.meshy.ai"
+    endpoint = "/v1/image-to-3d"
+
+    headers = {
+        "Authorization": f"Bearer {MESHY_API_KEY}",
+    }
+
+    files = {
+        "image": (os.path.basename(temp_img_file.name), open(temp_img_file.name, "rb"), "image/png"),
+    }
+
+    data = {
+        "prompt": prompt,
+        "art_style": "realistic", # You can adjust this as needed
+        "resolution": "1024",     # You can adjust this as needed
+    }
+
+    try:
+        response = requests.post(f"{base_url}{endpoint}", headers=headers, files=files, data=data)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        result = response.json()
+        if result and "model_url" in result:
+            # For now, just return a dummy path. In a real scenario, you would download the model.
+            print(f"Meshy API call successful. Model URL: {result['model_url']}")
+            return DEFAULT_3D_MODEL_PATH # Replace with actual downloaded model path
+        else:
+            raise gr.Error(f"Meshy API did not return a model URL: {result}")
+    except requests.exceptions.RequestException as e:
+        raise gr.Error(f"Error calling Meshy API: {e}")
+    finally:
+        os.unlink(temp_img_file.name) # Clean up the temporary image file
+
+def transform_image_with_stability_ai(image: np.ndarray, prompt: str) -> str:
+    if STABILITY_API_KEY is None:
+        raise gr.Error("Stability AI API key not configured. Please set STABILITY_API_KEY environment variable.")
+    
+    if image is None:
+        raise gr.Error("No image provided for Stability AI transformation.")
+
+    # Convert the numpy array image to JPEG format and save to a temporary file
+    temp_img_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+    Image.fromarray(image).save(temp_img_file.name, format="JPEG")
+    temp_img_file.close()
+    
+    api_host = os.getenv('API_HOST', 'https://api.stability.ai')
+    url = f"{api_host}/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image"
+
+    headers = {
+        "Authorization": f"Bearer {STABILITY_API_KEY}"
+    }
+
+    # Prepare the files for the request
+    with open(temp_img_file.name, "rb") as img_file:
+        files = {
+            "init_image": img_file,
+        }
+
+        data = {
+            "text_prompts[0][text]": prompt,
+            "text_prompts[0][weight]": 1,
+            "init_image_mode": "IMAGE_STRENGTH",
+            "image_strength": 0.35,
+            "cfg_scale": 7,
+            "clip_guidance_preset": "NONE",
+            "sampler": "K_EULER",
+            "samples": 1,
+            "steps": 30,
+        }
+
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+
+            response_data = response.json()
+            if "artifacts" not in response_data or len(response_data["artifacts"]) == 0:
+                raise gr.Error("No artifacts received from Stability AI API.")
+            
+            # Decode the base64 image and save it temporarily
+            output_image_data = response_data["artifacts"][0]["base64"]
+            output_image = Image.open(io.BytesIO(base64.b64decode(output_image_data)))
+            output_image_path = tempfile.mktemp(suffix=".png")
+            output_image.save(output_image_path)
+
+            # NOTE: This API generates a 2D image. Converting this 2D image to a 3D model
+            # would require additional processing or a different API, which is not covered here.
+            print(f"Stability AI API call successful. Generated 2D image saved to: {output_image_path}")
+            return DEFAULT_3D_MODEL_PATH # Return a dummy 3D model path for now
+
+        except requests.exceptions.RequestException as e:
+            raise gr.Error(f"Error calling Stability AI API: {e}")
+        finally:
+            os.unlink(temp_img_file.name) # Clean up the temporary input image file
+
+def transform_image_with_trellis(image: np.ndarray, prompt: str) -> str:
+    # Placeholder for TRELLIS API call
+    print(f"TRELLIS: Image received, prompt: {prompt}")
+    return DEFAULT_3D_MODEL_PATH # Return a dummy 3D model path
+
+def transform_image_with_hunyuan3d_2_1(image: np.ndarray, prompt: str) -> str:
+    #Bibliography: from 
+    #     https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1
+    #     https://www.perplexity.ai/search/busca-ejemplos-donde-se-lleve-a6lrCC4ISn2V.m2KIgKx_w
+    
+    
+    import sys
+    sys.path.insert(0, './hy3dshape')
+    sys.path.insert(0, './hy3dpaint')
+    from textureGenPipeline import Hunyuan3DPaintPipeline
+    from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+
+    # let's generate a mesh first
+    shape_pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained('tencent/Hunyuan3D-2.1')
+    mesh_untextured = shape_pipeline(image='assets/demo.png')[0]
+
+    paint_pipeline = Hunyuan3DPaintPipeline(Hunyuan3DPaintConfig(max_num_view=6, resolution=512))
+    mesh_textured = paint_pipeline(mesh_path, image_path='assets/demo.png')
+    
 ###########################################
 #
 #  Example functions
@@ -858,7 +990,54 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
             queue =False
         )  
 
-   
+    with gr.Tab("3D Object Transformation") as object_transformation_tab:
+        gr.Markdown("### Transform 2D Image to 3D Object")
+        with gr.Tabs():
+            with gr.Tab("@Meshy"):
+                with gr.Row():
+                    meshy_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+                    meshy_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                meshy_btn = gr.Button("Generate 3D Model (Meshy)")
+                meshy_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                meshy_btn.click(
+                    fn=transform_image_with_meshy,
+                    inputs=[meshy_img_in, meshy_prompt],
+                    outputs=[meshy_model_out],
+                )
+            with gr.Tab("@Stability AI"):
+                with gr.Row():
+                    stability_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+                    stability_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                stability_btn = gr.Button("Generate 3D Model (Stability AI)")
+                stability_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                stability_btn.click(
+                    fn=transform_image_with_stability_ai,
+                    inputs=[stability_img_in, stability_prompt],
+                    outputs=[stability_model_out],
+                )
+            with gr.Tab("@TRELLIS"):
+                with gr.Row():
+                    trellis_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+                    trellis_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                trellis_btn = gr.Button("Generate 3D Model (TRELLIS)")
+                trellis_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                trellis_btn.click(
+                    fn=transform_image_with_trellis,
+                    inputs=[trellis_img_in, trellis_prompt],
+                    outputs=[trellis_model_out],
+                )
+            with gr.Tab("@Hunyuan3D-2.1"):
+                with gr.Row():
+                    trellis_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
+                    trellis_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                trellis_btn = gr.Button("Generate 3D Model (TRELLIS)")
+                trellis_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                trellis_btn.click(
+                    fn=transform_image_with_trellis,
+                    inputs=[trellis_img_in, trellis_prompt],
+                    outputs=[trellis_model_out],
+                )
+
     # with gr.Tab("Text Example Image Stream") as evaluate_idea:
     #      videoWebCam = gr.Video(sources=["webcam"], format="mp4"),
     #      webcam = gr.Image( sources=["webcam"])       
