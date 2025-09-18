@@ -991,6 +991,10 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
         )  
 
     with gr.Tab("3D Object Transformation") as object_transformation_tab:
+        #
+        # Bibliography:
+        #   https://mtw75.medium.com/generative-ai-image-to-3d-services-apis-a-benchmark-2fb119d96a95
+        #
         gr.Markdown("### Transform 2D Image to 3D Object")
         with gr.Tabs():
             with gr.Tab("@Meshy"):
