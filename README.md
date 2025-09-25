@@ -1,4 +1,4 @@
-# The project is the core for transform a 2D image to 3D objet using open source project or private platform or endpoint via API KEY.
+# The project is the core for transforming a 2D image to 3D objet using open source project or private platform or endpoint via API KEY.
 
 
 ## Instalation steps.
