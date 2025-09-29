@@ -24,6 +24,12 @@ sys.path.append("/teamspace/studios/this_studio/flame-head-tracker")
 
 from generate_arkit_flame_meshes import Tracker3DImage
 
+import requests # Import requests
+import base64 # Import base64 for decoding
+import io # Import io for BytesIO
+import soundfile as sf # Import soundfile for audio processing
+from pydub import AudioSegment # Import pydub for audio manipulation
+
 # --- NUEVO: Leer variables de entorno desde archivo .env si existe ---
 from dotenv import load_dotenv
 load_dotenv()  # Esto cargará las variables de entorno desde un archivo .env si está presente
@@ -53,6 +59,9 @@ DEFAULT_3D_MODEL_PATH_ADDRESS = "/teamspace/studios/this_studio/flame-head-track
 DEFAULT_3D_MODEL_PATH = "/teamspace/studios/this_studio/flame-head-tracker/out_arkit_flame/neutral.obj"
 DEFAULT_PROCESSIG_IMAGE = "/teamspace/studios/this_studio/_neutral_images/neutral_face__jg6lzhz0cnk_e4752063-ea8f-4deb-ae59-c72ccd49e05d.jpg"
 
+DEFAULT_2D_to_3D_MODEL_PATHS = "E:/PROJECTS/PROJECT_BRAIN-AIX_VANCOUVER/SOURCE/webcam_facedetection/webcam_facedetection/neutral_images/test_charcter.jpg"
+DEFAULT_3D_MODEL_PATH_ADDRESS_AI_TOOLS = ""
+
 GEMINI_MODEL_NAME = "gemini-2.5-flash-image-preview"
 
 AVATAR_OUTPUT_DIR = "generated_avatars"
@@ -70,6 +79,13 @@ ERROR_MESSAGE_MORE_ONE_FACE = "There are more than one face or none \
 ERROR_MESSAGE_IMAGE_NOT_NEUTRAL = "Not image in neutral face position"
 
 streaming_active = True
+
+# --- NUEVO: Leer la API KEY de Gemini desde variable de entorno ---
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+MESHY_API_KEY = os.environ.get("MESHY_API_KEY") # Get Meshy API key
+STABILITYAI_API_KEY = os.environ.get("STABILITYAI_API_KEY") # Get Stability AI API key
+
+CUBE_BY_CSM_API_KEY = os.environ.get("CUBE_BY_CSM_API_KEY") # Get Stability AI API key
 
 ###################################################################
 #
@@ -576,6 +592,15 @@ def check_neutral_3d_image_exist(session_id: str, validate:bool = True) -> str:
          raise  gr.Error(MESSAGE_NOT_IMAGES_AVATAR)
     return None
 
+####
+#   Meshy Image to 3D API
+#      https://docs.meshy.ai/en/api/image-to-3d
+#    
+#    Image to 3D API is a feature that allows you to integrate Meshy's Image to 3D 
+#    capabilities into your own application. In this section, you'll find all the 
+#    information you need to get started with this API.
+#
+###
 
 def transform_image_with_meshy(image: np.ndarray, prompt: str) -> str:
     if MESHY_API_KEY is None:
@@ -596,31 +621,271 @@ def transform_image_with_meshy(image: np.ndarray, prompt: str) -> str:
         "Authorization": f"Bearer {MESHY_API_KEY}",
     }
 
-    files = {
-        "image": (os.path.basename(temp_img_file.name), open(temp_img_file.name, "rb"), "image/png"),
+    
+    payload = {
+        # Using data URI example
+        # image_url: f'data:image/png;base64,{YOUR_BASE64_ENCODED_IMAGE_DATA}',
+        "image_url": get_base64_image_from_file(temp_img_file.name),
+        "enable_pbr": True,
+        "should_remesh": True,
+        "should_texture": True,
+        "texture_image_url": get_base64_image_from_file(temp_img_file.name)
+    }
+    
+    # payload = {
+    #     "mode": "preview",
+    #     "prompt": "a monster mask",
+    #     "art_style": "realistic",
+    #     "should_remesh": True
+    # }
+    
+    
+    headers = {
+        "Authorization": f"Bearer {MESHY_API_KEY}"
     }
 
-    data = {
-        "prompt": prompt,
-        "art_style": "realistic", # You can adjust this as needed
-        "resolution": "1024",     # You can adjust this as needed
-    }
-
+    #######
+    #
+    # SLL generation files
+    #  [How to generate your own / self-signed SSL certificates for use with an On-Premise deployments](https://kb.teramind.co/en/articles/8791235-how-to-generate-your-own-self-signed-ssl-certificates-for-use-with-an-on-premise-deployments)
+    #
+    #  [Generate an Azure Application Gateway self-signed certificate with a custom root CA](https://learn.microsoft.com/en-us/azure/application-gateway/self-signed-certificates)
+    #
+    #  Source Code: [Python Requests - How to use system ca-certificates (debian/ubuntu)?](https://stackoverflow.com/questions/42982143/python-requests-how-to-use-system-ca-certificates-debian-ubuntu)
+    ######
     try:
-        response = requests.post(f"{base_url}{endpoint}", headers=headers, files=files, data=data)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-
+        import certifi 
+        meshy_url = "https://api.meshy.ai/openapi/v1/image-to-3d"
+       # meshy_url = "https://api.meshy.ai/openapi/v2/text-to-3d"
+        # response = requests.post(f"{base_url}{endpoint}", headers=headers, files=files, data=data)
+        # response.raise_for_status()  # Raise an exception for HTTP errors
+        print(f"Call for transform 3D in Meshy cloud whit {MESHY_API_KEY} with information {payload}")
+        response = requests.post(
+            meshy_url,
+            headers=headers,
+            json=payload,
+            #verify=False
+            allow_redirects=True,
+            verify=False
+            #verify="E:/PROJECTS/PROJECT_BRAIN-AIX_VANCOUVER/SOURCE/webcam_facedetection/webcam_facedetection/ssl_certificate/Amazon-RSA-2048-M02.pem"
+        )
+     
+        response.raise_for_status()
+        print("Response from Meshy cloud: ", response.json())
         result = response.json()
-        if result and "model_url" in result:
+        print(f"Call for transform 3D in Meshy cloud {response.json()}")
+        
+        if result and "result" in result:
             # For now, just return a dummy path. In a real scenario, you would download the model.
-            print(f"Meshy API call successful. Model URL: {result['model_url']}")
-            return DEFAULT_3D_MODEL_PATH # Replace with actual downloaded model path
+            #print(f"Meshy API call successful. Model URL: {result['model_url']}")
+            task_id = result['result']
+            print("Task ID: ", task_id)
+            result = {}
+            
+            while True:
+                response = requests.get(
+                    f"https://api.meshy.ai/openapi/v1/image-to-3d/{task_id}",
+                    headers=headers,
+                )
+            
+                response.raise_for_status()
+                result = response.json()
+                #print(f"Get the obj file in transform 3D from Meshy cloud {response.json()}")
+                print(f"Meshy API call successful. Model URL: {result['progress']}")
+                
+                progress = result['progress']
+                
+                if progress == 100:
+                    break
+                else:
+                    time.sleep(60*2)
+            
+            if result and "model_urls" in result:
+               # print(f"Meshy API call successful. Model URL: {result['progress']}")
+                print(f"Meshy API call successful. Model URL: {result['model_urls']['obj']}")
+                
+                obj_url = result['model_urls']['obj']
+                response = requests.get(obj_url, headers=headers)
+                response.raise_for_status()
+                obj_data = response.content
+                
+                path_meshy_obj_file = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS_AI_TOOLS, "neutral_meshy.obj")
+                
+                if os.path.exists( path_meshy_obj_file):
+                    os.remove(path_meshy_obj_file)                    
+                     
+                with open(path_meshy_obj_file, "wb") as f:
+                    f.write(obj_data)
+                print(f"Write the obj file in transform 3D from Meshy cloud in path: {path_meshy_obj_file}")
+                
+                obj_url = result['model_urls']['glb']
+                response = requests.get(obj_url, headers=headers)
+                response.raise_for_status()
+                obj_data = response.content
+                
+                path_meshy_obj_file = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS_AI_TOOLS, "neutral_meshy.glb")
+                
+                if os.path.exists( path_meshy_obj_file):
+                    os.remove(path_meshy_obj_file)                    
+                     
+                with open(path_meshy_obj_file, "wb") as f:
+                    f.write(obj_data)
+                print(f"Write the obj file in transform 3D from Meshy cloud in path: {path_meshy_obj_file}")
+                return path_meshy_obj_file
+            else:
+                raise gr.Error(f"Meshy API did not return a model URL: {result}")
+        
+           
+            print(response.json())
+            #return DEFAULT_3D_MODEL_PATH # Replace with actual downloaded model path
         else:
             raise gr.Error(f"Meshy API did not return a model URL: {result}")
+    except requests.exceptions.SSLError as e:
+        print(f"SSL Error: {e}")
     except requests.exceptions.RequestException as e:
         raise gr.Error(f"Error calling Meshy API: {e}")
-    finally:
-        os.unlink(temp_img_file.name) # Clean up the temporary image file
+    #finally:
+    #    os.unlink(temp_img_file.name) # Clean up the temporary image file
+
+
+
+####
+#  Cube by CSM.  Image to 3D API
+#      https://docs.csm.ai/
+#      https://docs.csm.ai/sessions/image-to-3d?language=python
+#    Image to 3D API is a feature that allows you to integrate Meshy's Image to 3D 
+#    capabilities into your own application. In this section, you'll find all the 
+#    information you need to get started with this API.
+#
+###
+
+def transform_image_with_cubeby_csm(image: np.ndarray, prompt: str) -> str:
+    if CUBE_BY_CSM_API_KEY is None:
+        raise gr.Error("Cube By CSM API key not configured. Please set CUBE_BY_CSM_API_KEY environment variable.")
+    
+    if image is None:
+        raise gr.Error("No image provided for Meshy transformation.")
+
+    # Save the input image to a temporary file
+    temp_img_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    Image.fromarray(image).save(temp_img_file.name)
+    temp_img_file.close()
+
+    base_url = url = "https://api.csm.ai/v3/sessions/"
+    
+
+    payload = {
+        # Using data URI example
+        # image_url: f'data:image/png;base64,{YOUR_BASE64_ENCODED_IMAGE_DATA}',
+
+        "type": "image_to_3d",
+	    "input": { 
+         "settings": {
+            "texture_model": "pbr"           
+         },
+         "image":get_base64_image_from_file(temp_img_file.name)}
+    }
+    headers = {
+       "x-api-key": CUBE_BY_CSM_API_KEY,
+	   "Content-Type": "application/json"
+    }
+
+    #######
+    #
+    # SLL generation files
+    #  [How to generate your own / self-signed SSL certificates for use with an On-Premise deployments](https://kb.teramind.co/en/articles/8791235-how-to-generate-your-own-self-signed-ssl-certificates-for-use-with-an-on-premise-deployments)
+    #
+    #  [Generate an Azure Application Gateway self-signed certificate with a custom root CA](https://learn.microsoft.com/en-us/azure/application-gateway/self-signed-certificates)
+    #
+    #  Source Code: [Python Requests - How to use system ca-certificates (debian/ubuntu)?](https://stackoverflow.com/questions/42982143/python-requests-how-to-use-system-ca-certificates-debian-ubuntu)
+    ######
+    try:
+        import certifi 
+       
+        # response = requests.post(f"{base_url}{endpoint}", headers=headers, files=files, data=data)
+        # response.raise_for_status()  # Raise an exception for HTTP errors
+        #print(f"Call for transform 3D in Meshy cloud whit {CUBE_BY_CSM_API_KEY} with information {payload}")
+        response = requests.post(
+            base_url,
+            headers=headers,
+            json=payload,
+            #verify=False
+            #verify="E:/PROJECTS/PROJECT_BRAIN-AIX_VANCOUVER/SOURCE/webcam_facedetection/webcam_facedetection/ssl_certificate/Amazon-RSA-2048-M02.pem"
+        )
+     
+        response.raise_for_status()
+        #print("Response from Cube by CSM cloud: ", response.json())
+        result = response.json()
+        #print(f"Call for transform 3D in Cube by CSM cloud {response.json()}")
+        
+        if result and "_id" in result:
+            # For now, just return a dummy path. In a real scenario, you would download the model.
+            #print(f"Meshy API call successful. Model URL: {result['model_url']}")
+            task_id = result['_id']
+            print("Task ID: ", task_id)
+            
+            url = f"https://api.csm.ai/v3/sessions/{task_id}"
+
+
+            while True:
+                response = requests.get(
+                    url,
+                    headers=headers,
+                )
+           
+                response.raise_for_status()
+                result = response.json()
+                print(f" Status in Result ==> {result['status']}")
+                status = result['status']
+               
+                if status == 'failed':
+                   raise gr.Error(f"Some error appear in transformation procession")
+               
+                if status == 'complete':
+                   break
+                
+                time.sleep(60*2)
+           
+            print(f"Get the obj file in transform 3D from Cube by CSM cloud {response.json()}")
+            
+            
+            
+            if result and "output" in result:
+                print(f"n\nMeshy API call successful. Model URL: {result['output']['meshes'][0]}")
+                
+                obj_url = result['output']['meshes'][0]['data']['obj_url']
+                
+                if obj_url == "":
+                    raise gr.Error(f"Cube by CSM API did not return a obj_url URL")
+                response = requests.get(obj_url, headers=headers)
+                response.raise_for_status()
+                obj_data = response.content
+                
+                path_meshy_obj_file = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS_AI_TOOLS, "neutral_cubebycsm.obj")
+                
+                if os.path.exists( path_meshy_obj_file):
+                    shutil.rmtree(path_meshy_obj_file)                    
+                     
+                with open(path_meshy_obj_file, "wb") as f:
+                    f.write(obj_data)
+                
+                return path_meshy_obj_file
+            else:
+                raise gr.Error(f"Meshy API did not return a model URL: {result}")
+        
+           
+            print(response.json())
+            #return DEFAULT_3D_MODEL_PATH # Replace with actual downloaded model path
+        else:
+            raise gr.Error(f"Meshy API did not return a model URL: {result}")
+    except requests.exceptions.SSLError as e:
+        print(f"SSL Error: {e}")
+    except requests.exceptions.RequestException as e:
+        raise gr.Error(f"Error calling Meshy API: {e}")
+    #finally:
+    #    os.unlink(temp_img_file.name) # Clean up the temporary image file
+    
+    
 
 def transform_image_with_stability_ai(image: np.ndarray, prompt: str) -> str:
     if STABILITY_API_KEY is None:
@@ -707,7 +972,91 @@ def transform_image_with_hunyuan3d_2_1(image: np.ndarray, prompt: str) -> str:
 
     paint_pipeline = Hunyuan3DPaintPipeline(Hunyuan3DPaintConfig(max_num_view=6, resolution=512))
     mesh_textured = paint_pipeline(mesh_path, image_path='assets/demo.png')
+
+
+# Audio functions
+AUDIO_OUTPUT_DIR = "user_audio_records"
+AUDIO_OUTPUT_FILE_ADDRESS = ""
+os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+
+def record_audio(audio_path, session_id):
+    if audio_path is None:
+        raise gr.Error("No audio recorded.")
     
+    # Save the recorded audio to a temporary file
+    # Gradio's Audio component already saves to a temp file, so we just need to move/rename it
+    global AUDIO_OUTPUT_FILE_ADDRESS
+    
+    filename = f"recorded_audio_{session_id}.wav"
+    
+    output_path = os.path.join(AUDIO_OUTPUT_DIR, filename)
+    shutil.copy(audio_path, output_path)
+    
+    AUDIO_OUTPUT_FILE_ADDRESS = output_path
+    return output_path, f"Audio recorded and saved to {output_path}"
+
+def save_audio(audio_file, session_id):
+    if audio_file is None:
+        raise gr.Error("No audio file to save.")
+ 
+    filename = f"user_audio_{session_id}.wav"
+    output_path = AUDIO_OUTPUT_FILE_ADDRESS if os.path.exist(AUDIO_OUTPUT_FILE_ADDRESS)  else os.path.join(AUDIO_OUTPUT_DIR, filename)
+   
+    shutil.copy(audio_file, output_path)
+    return output_path, f"Audio saved to {output_path}"
+
+def play_audio_from_prompt(prompt: str, session_id: str) -> Tuple[str, str]:
+    if not prompt:
+        raise gr.Error("Please provide a prompt to generate audio.")
+    
+    # Placeholder for actual text-to-speech logic
+    # In a real application, you would integrate a TTS API here
+    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
+    # Create a dummy silent audio file
+    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
+    
+    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'"
+
+def play_audio_from_prompt_xtts_v2(prompt: str, session_id: str) -> Tuple[str, str]:
+    if not prompt or prompt == "":
+        raise gr.Error("Please provide a prompt to generate audio.")
+    elif not os.path.exists(AUDIO_OUTPUT_FILE_ADDRESS):
+        raise gr.Error("No audio file to play.")
+    
+    # Placeholder for actual text-to-speech logic
+    # In a real application, you would integrate a TTS API here
+    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
+    # Create a dummy silent audio file
+    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
+    
+    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'"
+
+def play_audio_from_prompt_dia(prompt: str, session_id: str) -> Tuple[str, str]:
+    if not prompt or prompt == "":
+        raise gr.Error("Please provide a prompt to generate audio.")
+    elif not os.path.exists(AUDIO_OUTPUT_FILE_ADDRESS):
+        raise gr.Error("No audio file to play.")
+    
+    # Placeholder for actual text-to-speech logic
+    # In a real application, you would integrate a TTS API here
+    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
+    # Create a dummy silent audio file
+    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
+    
+    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'"
+
+def play_audio_from_prompt_openvoice_v2(prompt: str, session_id: str) -> Tuple[str, str]:
+    if not prompt or prompt == "":
+        raise gr.Error("Please provide a prompt to generate audio.")
+    elif not os.path.exists(AUDIO_OUTPUT_FILE_ADDRESS):
+        raise gr.Error("No audio file to play.")
+    # Placeholder for actual text-to-speech logic
+    # In a real application, you would integrate a TTS API here
+    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
+    # Create a dummy silent audio file
+    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
+    
+    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'" 
 ###########################################
 #
 #  Example functions
@@ -1008,6 +1357,24 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                     inputs=[meshy_img_in, meshy_prompt],
                     outputs=[meshy_model_out],
                 )
+                
+            with gr.Tab("@Cube by CSM"):
+                with gr.Row():
+                    meshy_img_in = gr.Image(
+                        type="numpy", 
+                        label="Input Image", 
+                        sources=["upload", "clipboard"], 
+                        image_mode="RGB",
+                        value = DEFAULT_2D_to_3D_MODEL_PATHS
+                        )
+                    meshy_prompt = gr.Textbox(label="Prompt", placeholder="Describe the 3D object...")
+                meshy_btn = gr.Button("Generate 3D Model (Cube by CSM)")
+                meshy_model_out = gr.Model3D(label="3D Model Output", interactive=False)
+                meshy_btn.click(
+                    fn=transform_image_with_cubeby_csm,
+                    inputs=[meshy_img_in, meshy_prompt],
+                    outputs=[meshy_model_out],
+                )
             with gr.Tab("@Stability AI"):
                 with gr.Row():
                     stability_img_in = gr.Image(type="numpy", label="Input Image", sources=["upload", "clipboard"], image_mode="RGB")
@@ -1042,6 +1409,57 @@ with gr.Blocks(title="Face Detection with MediaPipe", theme=gr.themes.Soft(), cs
                     outputs=[hunyuan3d_model_out],
                 )
 
+
+    with gr.Tab("Audio Features") as audioFeatures_tab:
+        gr.Markdown("### Audio Features")
+        with gr.Row():
+            audio_recorder = gr.Audio(label="Record Audio", sources=["microphone"], type="filepath")
+            save_recorded_audio_btn = gr.Button("Save Recorded Audio")
+            saved_audio_output = gr.Audio(label="Saved Audio")
+        save_audio_message = gr.Textbox(label="Status")
+
+        save_recorded_audio_btn.click(
+            fn= record_audio,
+            inputs=[audio_recorder, session_id],
+            outputs=[saved_audio_output, save_audio_message]
+        )
+
+        gr.Markdown("### Play Audio from Prompt")
+        audio_prompt_input = gr.Textbox(label="Prompt for Audio Generation", placeholder="Enter text to generate audio...")
+           
+        with gr.Tabs():
+            with gr.Tab("@XTTS-v2"):
+                with gr.Row():
+                    play_audio_btn1 = gr.Button("Play with Audio with @XTTS-v2")
+                    audio_output_1 = gr.Audio(label="Generated Audio 1")
+            with gr.Tab("@Dia"):
+                with gr.Row():
+                    play_audio_btn2 = gr.Button("Play Audio with @Dia")
+                    audio_output_2 = gr.Audio(label="Generated Audio 2")
+            with gr.Tab("@OpenVoice_v2"):
+                with gr.Row():
+                    play_audio_btn3 = gr.Button("Play Audio with @OpenVoice_v2")
+                    audio_output_3 = gr.Audio(label="Generated Audio 3")
+
+        
+        play_audio_btn1.click(
+            fn = play_audio_from_prompt_xtts_v2,
+            inputs = [audio_prompt_input, session_id],
+            outputs = [audio_output_1, save_audio_message]
+        )
+        play_audio_btn2.click(
+            fn = play_audio_from_prompt_dia,
+            inputs = [audio_prompt_input, session_id],
+            outputs = [audio_output_2, save_audio_message]
+        )
+        play_audio_btn3.click(
+            fn = play_audio_from_prompt_openvoice_v2,
+            inputs = [audio_prompt_input, session_id],
+            outputs = [audio_output_3, save_audio_message]
+        )
+
+
+   
     # with gr.Tab("Text Example Image Stream") as evaluate_idea:
     #      videoWebCam = gr.Video(sources=["webcam"], format="mp4"),
     #      webcam = gr.Image( sources=["webcam"])       

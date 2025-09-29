@@ -1,4 +1,55 @@
-n<h1 align="center"><b>FLAME Head Tracker</b></h1>
+# The project is the core for transforming a 2D image to 3D objet using open source project or private platform or endpoint via API KEY.
+
+
+## Instalation steps.
+Note: Was used uv tool for installing dependencies and start a gradio app.
+
+1. clone the repository from github. 
+
+1. Enter (cd) to directory flame-head-tracker
+   `cd flame-head-traker`
+
+1. Create a uv environement
+
+   `uv venv my-environement  --python 3.11`
+
+1. Activate your environement:
+
+   - Linux activation: `source  my-environement/bin/activate`
+
+    - Windows activation: `my-environement\Scripts\activate`
+
+1. Install dependencies (First part)
+  `uv pip install -r dev_requirements.txt`
+
+1. Install specific dependecies (Second part)
+
+    - Test: 
+      `uv pip install --extra-index-url https://miropsota.github.io/torch_packages_builder pytorch3d==0.7.8+pt2.5.1cu124`
+    - If have error use:
+        `uv pip install 'git+https://github.com/facebookresearch/pytorch3d.git@stable' --no-build-isolation`
+1. Install specific dependices (Third part)
+
+    - `uv pip install pip setuptools`
+    - `uv pip install chumpy --no-build-isolation`
+
+    NOTE: Important, about python compatibilities you need to modify the chumpy module source code 
+    ### Change is
+        File "my-environement/lib/python3.11/site-packages/chumpy/ch.py", line 1203, in _depends_on
+          want_out = 'out' in inspect.getargspec(func).args
+        
+        By 	
+              want_out = 'out' in inspect.getfullargspec(func).args
+
+1. Deploy the Gradio user interface:
+
+    - `cd webcam_facedetection`
+    - `uv run app.py`
+
+# The open source project for 3D object representation used as core was:
+
+
+<h1 align="center"><b>FLAME Head Tracker</b></h1>
 
 <div align="center"> 
   <a href="https://opensource.org/licenses/MIT">
