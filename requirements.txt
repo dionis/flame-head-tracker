@@ -25,5 +25,12 @@ jupyterlab
 byp
 trimesh
 gradio
+python-dotenv==1.0.1
+Pillow==10.3.0
+google-generativeai==0.6.0
+requests==2.31.0
+soundfile==0.12.1
+pydub==0.25.1
+mediapipe==0.10.14
 #torch
 #git+https://github.com/facebookresearch/pytorch3d.git@stable
