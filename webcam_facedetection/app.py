@@ -11,6 +11,9 @@ from google import genai
 from google.api_core  import exceptions
 from PIL import Image
 from io import BytesIO
+
+import torch
+
 import uuid
 import shutil
 from utils_tool.face_analyzer import FaceAnalyzer, FaceAnalysisResult
@@ -32,6 +35,13 @@ from pydub import AudioSegment # Import pydub for audio manipulation
 
 # --- NUEVO: Leer variables de entorno desde archivo .env si existe ---
 from dotenv import load_dotenv
+
+#### Audio Spech record dependecies ###
+from TTS.api import TTS
+from TTS.tts.configs.xtts_config import XttsConfig
+from TTS.tts.models.xtts import Xtts
+
+
 load_dotenv()  # Esto cargará las variables de entorno desde un archivo .env si está presente
 
 # --- NUEVO: Leer la API KEY de Gemini desde variable de entorno ---
@@ -886,9 +896,15 @@ def transform_image_with_cubeby_csm(image: np.ndarray, prompt: str) -> str:
     #    os.unlink(temp_img_file.name) # Clean up the temporary image file
     
     
+######
+#
+#  Bibliografy https://platform.stability.ai/docs/api-reference#tag/3D
+#
+#
+#####
 
 def transform_image_with_stability_ai(image: np.ndarray, prompt: str) -> str:
-    if STABILITY_API_KEY is None:
+    if STABILITYAI_API_KEY is None:
         raise gr.Error("Stability AI API key not configured. Please set STABILITY_API_KEY environment variable.")
     
     if image is None:
@@ -903,50 +919,74 @@ def transform_image_with_stability_ai(image: np.ndarray, prompt: str) -> str:
     url = f"{api_host}/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image"
 
     headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}"
-    }
+            "authorization": f"Bearer {STABILITYAI_API_KEY}"
+        }
+        
+    stability_url  = "https://api.stability.ai/v2beta/3d/stable-fast-3d"
+    stability_url = "https://api.stability.ai/v2beta/3d/stable-point-aware-3d"
+    response = requests.post(
+        stability_url,
+        headers = headers,
+        files={
+            "image": open(temp_img_file.name, "rb")
+        },
+        data={},
+    )
+
+    if response.status_code == 200:
+        path_stability_obj_file = os.path.join(DEFAULT_3D_MODEL_PATH_ADDRESS_AI_TOOLS, "neutral_stability.glb")
+                
+        if os.path.exists(path_stability_obj_file):
+            os.remove(path_stability_obj_file)  
+             
+        with open(path_stability_obj_file, 'wb') as file:
+            file.write(response.content)
+            
+            return path_stability_obj_file
+    else:
+        raise Exception(str(response.json()))
 
     # Prepare the files for the request
-    with open(temp_img_file.name, "rb") as img_file:
-        files = {
-            "init_image": img_file,
-        }
+    # with open(temp_img_file.name, "rb") as img_file:
+    #     files = {
+    #         "init_image": img_file,
+    #     }
 
-        data = {
-            "text_prompts[0][text]": prompt,
-            "text_prompts[0][weight]": 1,
-            "init_image_mode": "IMAGE_STRENGTH",
-            "image_strength": 0.35,
-            "cfg_scale": 7,
-            "clip_guidance_preset": "NONE",
-            "sampler": "K_EULER",
-            "samples": 1,
-            "steps": 30,
-        }
+    #     data = {
+    #         "text_prompts[0][text]": prompt,
+    #         "text_prompts[0][weight]": 1,
+    #         "init_image_mode": "IMAGE_STRENGTH",
+    #         "image_strength": 0.35,
+    #         "cfg_scale": 7,
+    #         "clip_guidance_preset": "NONE",
+    #         "sampler": "K_EULER",
+    #         "samples": 1,
+    #         "steps": 30,
+    #     }
 
-        try:
-            response = requests.post(url, headers=headers, files=files, data=data)
-            response.raise_for_status()  # Raise an exception for HTTP errors
+    #     try:
+    #         response = requests.post(url, headers=headers, files=files, data=data)
+    #         response.raise_for_status()  # Raise an exception for HTTP errors
 
-            response_data = response.json()
-            if "artifacts" not in response_data or len(response_data["artifacts"]) == 0:
-                raise gr.Error("No artifacts received from Stability AI API.")
+    #         response_data = response.json()
+    #         if "artifacts" not in response_data or len(response_data["artifacts"]) == 0:
+    #             raise gr.Error("No artifacts received from Stability AI API.")
             
-            # Decode the base64 image and save it temporarily
-            output_image_data = response_data["artifacts"][0]["base64"]
-            output_image = Image.open(io.BytesIO(base64.b64decode(output_image_data)))
-            output_image_path = tempfile.mktemp(suffix=".png")
-            output_image.save(output_image_path)
+    #         # Decode the base64 image and save it temporarily
+    #         output_image_data = response_data["artifacts"][0]["base64"]
+    #         output_image = Image.open(io.BytesIO(base64.b64decode(output_image_data)))
+    #         output_image_path = tempfile.mktemp(suffix=".png")
+    #         output_image.save(output_image_path)
 
-            # NOTE: This API generates a 2D image. Converting this 2D image to a 3D model
-            # would require additional processing or a different API, which is not covered here.
-            print(f"Stability AI API call successful. Generated 2D image saved to: {output_image_path}")
-            return DEFAULT_3D_MODEL_PATH # Return a dummy 3D model path for now
+    #         # NOTE: This API generates a 2D image. Converting this 2D image to a 3D model
+    #         # would require additional processing or a different API, which is not covered here.
+    #         print(f"Stability AI API call successful. Generated 2D image saved to: {output_image_path}")
+    #         return DEFAULT_3D_MODEL_PATH # Return a dummy 3D model path for now
 
-        except requests.exceptions.RequestException as e:
-            raise gr.Error(f"Error calling Stability AI API: {e}")
-        finally:
-            os.unlink(temp_img_file.name) # Clean up the temporary input image file
+    #     except requests.exceptions.RequestException as e:
+    #         raise gr.Error(f"Error calling Stability AI API: {e}")
+    #     finally:
+    #         os.unlink(temp_img_file.name) # Clean up the temporary input image file
 
 def transform_image_with_trellis(image: np.ndarray, prompt: str) -> str:
     # Placeholder for TRELLIS API call
@@ -1000,7 +1040,7 @@ def save_audio(audio_file, session_id):
         raise gr.Error("No audio file to save.")
  
     filename = f"user_audio_{session_id}.wav"
-    output_path = AUDIO_OUTPUT_FILE_ADDRESS if os.path.exist(AUDIO_OUTPUT_FILE_ADDRESS)  else os.path.join(AUDIO_OUTPUT_DIR, filename)
+    output_path = AUDIO_OUTPUT_FILE_ADDRESS if os.path.exists(AUDIO_OUTPUT_FILE_ADDRESS)  else os.path.join(AUDIO_OUTPUT_DIR, filename)
    
     shutil.copy(audio_file, output_path)
     return output_path, f"Audio saved to {output_path}"
@@ -1025,25 +1065,73 @@ def play_audio_from_prompt_xtts_v2(prompt: str, session_id: str) -> Tuple[str, s
     
     # Placeholder for actual text-to-speech logic
     # In a real application, you would integrate a TTS API here
-    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
+    #dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
     # Create a dummy silent audio file
-    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
-    
-    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'"
+    #AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+  
+
+    # generate speech by cloning a voice using default settings
+
+    output_xtts_v2_filename = f"output_xtts_v2_recorded_audio_{session_id}.wav"
+
+    output_xtts_v2__path = os.path.join(AUDIO_OUTPUT_DIR, output_xtts_v2_filename)
+
+    
+
+    try:
+        os.environ["COQUI_TOS_AGREED"] = "1"
+        
+        tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+
+        tts.tts_to_file(text = prompt,
+                    file_path = output_xtts_v2__path,
+                    speaker_wav= AUDIO_OUTPUT_FILE_ADDRESS,
+                    language="es")
+    except TypeError  as e:
+        raise gr.Error(f"Cause of the outer exception: {e.__cause__}")
+
+    
+    return output_xtts_v2__path, f"Playing audio for prompt: '{prompt}'"
+
+
+####
+#
+#  Bibliografy:
+#        https://github.com/nari-labs/dia
+#        https://github.com/nari-labs/dia/blob/main/example/voice_clone.py
+###
 def play_audio_from_prompt_dia(prompt: str, session_id: str) -> Tuple[str, str]:
+    from dia.model import Dia
+
     if not prompt or prompt == "":
         raise gr.Error("Please provide a prompt to generate audio.")
     elif not os.path.exists(AUDIO_OUTPUT_FILE_ADDRESS):
         raise gr.Error("No audio file to play.")
     
-    # Placeholder for actual text-to-speech logic
-    # In a real application, you would integrate a TTS API here
-    dummy_audio_path = os.path.join(AUDIO_OUTPUT_DIR, f"generated_audio_{session_id}_{random.randint(0, 1000)}.wav")
-    # Create a dummy silent audio file
-    AudioSegment.silent(duration=1000).export(dummy_audio_path, format="wav")
+    model = Dia.from_pretrained("nari-labs/Dia-1.6B-0626", compute_dtype="float16")
+
+    output_xtts_v2_filename = f"output_xtts_v2_recorded_audio_{session_id}.mp3"
+
+    output_xtts_v2__path = os.path.join(AUDIO_OUTPUT_DIR, output_xtts_v2_filename)
+
+    # It will only return the audio from the text_to_generate
+    output = model.generate(
+        prompt,
+        audio_prompt = AUDIO_OUTPUT_FILE_ADDRESS,
+        use_torch_compile=False,
+        verbose=True,
+        cfg_scale=4.0,
+        temperature=1.8,
+        top_p=0.90,
+        cfg_filter_top_k=50,
+    )
     
-    return dummy_audio_path, f"Playing audio for prompt: '{prompt}'"
+    model.save_audio(output_xtts_v2__path, output)
+
+    return output_xtts_v2__path, f"Playing audio for prompt: '{prompt}'"
 
 def play_audio_from_prompt_openvoice_v2(prompt: str, session_id: str) -> Tuple[str, str]:
     if not prompt or prompt == "":
