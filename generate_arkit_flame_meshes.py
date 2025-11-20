@@ -436,6 +436,23 @@ class Tracker3DImage:
         self.tracker.update_init_fov(fov=20)    # this is the initial camera FOV, default is 20
         self.tracker.set_landmark_detector('mediapipe')
         
+    ###################################################
+    # 
+    #   Bibliografy:
+    #      FLAME Head Tracker  https://github.com/peizhiyan/flame-head-tracker
+    #        source code: https://github.com/PeizhiYan/flame-head-tracker/blob/main/Example_1_single_image_reconstruction.ipynb
+    # 
+    ############################################################
+        
+    def save_mesh_rendered_as_obj(self, ret_dict):
+        out_dir="out_arkit_flame"
+
+        if "mesh_rendered" in ret_dict:
+            # Save the data array as an image
+           plt.imsave( out_dir + os.path.sep + 'mesh_rendered.png', ret_dict['mesh_rendered'][0], cmap='viridis')
+          
+           #plt.imshow(ret_dict['mesh_rendered'][i]); plt.title('mesh_rendered'); plt.axis('off')
+        return True
 
     def main_another_example(self, 
         img_path = "/teamspace/studios/this_studio/DECA/TestSamples/examples/000001.jpg",
@@ -489,8 +506,11 @@ class Tracker3DImage:
         # img will be replaced by the realigned image
         start_time = time.time() # record the start time
 
+
         ret_dict = self.tracker.load_image_and_run(img_path, realign=True, photometric_fitting = True) 
-        
+
+        self.save_mesh_rendered_as_obj(ret_dict)
+
         print("*** !! OK Size of data in Deca dict for get texture Ok !!!")
         print(self.tracker.deca.ret_dict.keys())
     
@@ -500,6 +520,8 @@ class Tracker3DImage:
             os.path.join(out_dir, file_name, file_name + '.obj'), 
             self.tracker.deca.ret_dict
             )
+
+
         #print(tracker.deca.ret_dict.keys)
 
         end_time = time.time() # record the end time
@@ -546,6 +568,7 @@ class Tracker3DImage:
         #     faces = faces, 
         #     process = False
         # ).export(Path(out_dir)/"neutral.obj", include_texture=True, write_texture=True)
+
         global USER_UNIQUE_ID
         
         filename_to_copy = file_name + '.obj'
@@ -554,10 +577,24 @@ class Tracker3DImage:
 
         print(f"Find out the file in: {source_path}")
         
-        assert Path(source_path).exists(), f"Missing texture file in {source_path}"
+        assert Path(source_path).exists(), f"Missing obj file in {source_path}"
         shutil.copy(str(source_path), str(target_path)) 
         print(f"Copy detailed obj file as neutral from : {source_path}")
         print(f"Copy detailed obj file as neutral to : {target_path}")
+
+        #Texture file copy
+
+        filename_texture_to_copy = file_name + '.png'
+        target_path = os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.png")
+        source_path = os.path.join(out_dir, file_name, filename_texture_to_copy)
+
+        print(f"Find out the file in: {source_path}")
+        
+        assert Path(source_path).exists(), f"Missing texture file in {source_path}"
+        shutil.copy(str(source_path), str(target_path)) 
+        print(f"Copy detailed texture file as neutral from : {source_path}")
+        print(f"Copy detailed texture file as neutral to : {target_path}")
+
 
         #save_obj_as_image(out_dir + os.sep + "neutral.obj",  save_path = out_dir, device = device)
 
@@ -610,11 +647,11 @@ class Tracker3DImage:
                 #verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
                 verts_neutral, _, _ = self.tracker.flame(shape_params = shape, expression_params = exp_t, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
             
-            trimesh.Trimesh(
-                vertices = verts_neutral[0].detach().cpu().numpy(), 
-                faces = faces, 
-                process = False
-            ).export(Path(blandshape52Directory)/new_file_name, include_texture=True, write_texture=True)
+            # trimesh.Trimesh(
+            #     vertices = verts_neutral[0].detach().cpu().numpy(), 
+            #     faces = faces, 
+            #     process = False
+            # ).export(Path(blandshape52Directory)/new_file_name, include_texture=True, write_texture=True)
             #mesh_path = Path(out_dir)/f"{idx:02d}_{name}.obj"
             
             #trimesh.Trimesh(vertices=verts_neutral[0].detach().cpu().numpy(), faces=faces, process=False).export(mesh_path)
@@ -623,7 +660,7 @@ class Tracker3DImage:
         Path(out_dir, f"arkit_order_{USER_UNIQUE_ID}.json").write_text(json.dumps(ARKIT_ORDER, indent=2))   
         
         ###Return adress to texture files and texture file name
-        return (os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), f"{file_name}.png" )
+        return (os.path.join(out_dir, f"neutral_{USER_UNIQUE_ID}.obj" ),  os.path.join(out_dir, file_name), filename_texture_to_copy)
         
     
     def load_obj_vertices_faces(self, path: Path):
@@ -720,9 +757,9 @@ class Tracker3DImage:
             # Import neutral mesh
             #bpy.ops.import_scene.obj(filepath=str(neutral_path))
             
-            # texture_file = TEXTURE_DIR / texture_filename
-            # assert texture_file.exists(), f"Missing texture file in {texture_file}"
-            # print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
+            texture_file = TEXTURE_DIR / texture_filename
+            assert texture_file.exists(), f"Missing texture file in {texture_file}"
+            print(f"Importing neutral mesh from: {neutral_path} with texture: {texture_file}") 
         
             # # Copy file from texture_file to IN_DIR
             # dest_texture_path = IN_DIR / "neutral.png"
@@ -748,12 +785,16 @@ class Tracker3DImage:
             
             # Assigns the material to the active object.
             #active_object = bpy.context.active_object
-            #if active_object and active_object.type == 'MESH':
-            #  new_material = create_textured_material("DECA_Material", str(texture_file))
+
+            active_object = head
+
+            if head and head.type == 'MESH':
+              new_material = create_textured_material("DECA_Material", str(texture_file))
+              print("--------------------Add texture File to Scene-----------------------------------")
             
-        # Delete existing material slots and add a new one.
-            #active_object.data.materials.clear()
-            #active_object.data.materials.append(new_material)
+              # Delete existing material slots and add a new one.
+              head.data.materials.clear()
+              head.data.materials.append(new_material)
             
 
             #obj = bpy.context.selected_objects[0]
@@ -832,9 +873,9 @@ class Tracker3DImage:
                 # shape_key_names.append(name)
 
             # Create 52-frame animation, one key per frame
-            # scene = bpy.context.scene
-            # scene.frame_start = 1
-            # scene.frame_end = 52
+            scene = bpy.context.scene
+            scene.frame_start = 1
+            scene.frame_end = 52
 
             # for f, name in enumerate(shape_key_names, start=1):
             #     # zero all keys
@@ -851,16 +892,42 @@ class Tracker3DImage:
                 kb.keyframe_insert(data_path="value", frame=f)
 
                 # FBX export (axes for Unreal: -Z forward, Y up)
+
+            # Entra en modo 'EDIT' y selecciona toda la malla para la limpieza.
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+
+            # Elimina vértices duplicados, corrigiendo la geometría non-manifold.
+            # El umbral puede necesitar ajuste según la escala del modelo.
+            bpy.ops.mesh.remove_doubles(threshold=0.0001)
+
+            # Vuelve a modo 'OBJECT'.
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            # Aplica la escala del objeto para corregir transformaciones no uniformes.
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+           
             bpy.ops.export_scene.fbx(
                 filepath=str(OUT_FBX),
                 use_selection=False,
                 add_leaf_bones=False,
                 bake_anim=True,
-                bake_anim_use_all_bones=False,
-                bake_anim_use_nla_strips=False,
+                #bake_anim_use_all_bones=False,
+                #bake_anim_use_nla_strips=False,
                 bake_anim_force_startend_keying=True,
                 apply_scale_options='FBX_SCALE_ALL',
-                axis_forward='-Z', axis_up='Y'
+                axis_forward='-Z', axis_up='Y',
+                path_mode = 'COPY',
+                embed_textures = True,
+                use_mesh_modifiers=True,
+                use_triangles=True,
+                object_types={'MESH'},
+
+                bake_anim_use_all_actions=True, # Ensures all generated keyframes are baked
+                bake_anim_step=1.0, 
+                # Critical flags for blendshape export and mesh integrity
+                mesh_smooth_type='FACE', 
+                use_tspace=False, # Often recommended for clean blendshape export
             )
         
             print(f"Generated 52 pose meshes in: {OUT_FBX} for create a FBX files")
@@ -872,6 +939,7 @@ class Tracker3DImage:
         finally:
         # this block always runs, whether an error occurred or not
           print("finished trying the blender task.")
+          
 
 
     def process_image_to_3d_object(self, input_path, input_type, output_dir):
@@ -961,16 +1029,31 @@ def create_textured_material(material_name, texture_path):
         return None
     
     # Arrange the position of nodes for better visualization.
-    principled_bsdf.location = (-200, 0)
-    image_texture.location = (-400, 0)
+    #principled_bsdf.location = (-200, 0)
+    #image_texture.location = (-400, 0)
     
-    # Link the nodes.
+    # # Link the nodes.
+    # links = mat.node_tree.links
+    # links.new(image_texture.outputs[0], principled_bsdf.inputs[0])
+    # links.new(principled_bsdf.outputs[0], material_output.inputs[0])
+    
+    # #mat.node_tree.nodes["Principled BSDF"].inputs['Specular'].default_value = 0
+    # #mat.node_tree.nodes["Principled BSDF"].inputs['Roughness'].default_value = 0.5
+
+     # Conexión CRÍTICA para FBX: Color de Textura -> Color Base del BSDF
     links = mat.node_tree.links
-    links.new(image_texture.outputs[0], principled_bsdf.inputs[0])
-    links.new(principled_bsdf.outputs[0], material_output.inputs[0])
+    links.new(image_texture.outputs['Color'], principled_bsdf.inputs[0])
     
-    #mat.node_tree.nodes["Principled BSDF"].inputs['Specular'].default_value = 0
-    #mat.node_tree.nodes["Principled BSDF"].inputs['Roughness'].default_value = 0.5
+    #links.new(principled_bsdf.outputs, material_output.inputs)
+    links.new(principled_bsdf.outputs[0], material_output.inputs[0])
+
+    # Asigna el material al objeto
+    # if obj.data.materials:
+    #     obj.data.materials = mat
+    # else:
+    #     obj.data.materials.append(mat)
+    
+    # print(f"Material '{material_name}' asignado correctamente.")
     
 
 
