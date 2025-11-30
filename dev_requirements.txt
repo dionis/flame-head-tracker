@@ -31,7 +31,7 @@ ninja
 trimesh
 DracoPy
 google-genai
-gradio
+gradio==5.49.0
 fsspec[gcs]
 gcsfs
 python-dotenv

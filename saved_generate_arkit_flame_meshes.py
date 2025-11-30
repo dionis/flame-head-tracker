@@ -40,7 +40,8 @@ from decalib.utils.config import cfg as deca_cfg
 #from decalib.models.FLAME import FLAME
 from decalib.utils import util
 
-from compare_files import compare_files_line_by_line
+from compare_utils import compare_files_line_by_line
+
 
 WORKING_DIR = '/teamspace/studios/this_studio/flame-head-tracker'
 
@@ -608,7 +609,6 @@ class Tracker3DImage:
         os.makedirs(blandshape52Directory, exist_ok=True)
         
         BLANDESHAPE_DIRECTORY_DETAIL_ADDRESS = Path(out_dir) / file_name
-        last_file_address = None
 
         for idx, name in enumerate(ARKIT_ORDER, start=1):  # frames 1..52
            
@@ -640,8 +640,6 @@ class Tracker3DImage:
             self.tracker.deca.ret_dict['exp'] = torch.from_numpy(exp).to(device).float()
             self.tracker.deca.ret_dict['pose'] = torch.from_numpy(pose).to(device).float()  
             self.tracker.deca.ret_dict['eye_pose'] = torch.from_numpy(eye_pose).to(device).float()    
-
-            print(f" The blandshape show {name} ======> : {self.tracker.deca.ret_dict['pose']}")
                 
         # [N, D_shape]
 
@@ -649,33 +647,18 @@ class Tracker3DImage:
             #https://github.com/mikedh/trimesh/issues/1064
             
             new_file_name = f"{name}_neutral__{USER_UNIQUE_ID}.obj"
-
-            current_file_address =  os.path.join(out_dir, file_name, new_file_name)
-            verts_neutral = []
+            
+            self.tracker.deca.save_obj(
+            os.path.join(out_dir, file_name, new_file_name), 
+            self.tracker.deca.ret_dict
+            )
 
             with torch.no_grad():
             # verts, _ = flame_layer(shape_params=shape_betas, expression_params=exp_t, pose_params=full_pose)
 
                 #verts_neutral, _, _ = tracker.flame(shape_params = shape, expression_params = exp, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
                 verts_neutral, _, _ = self.tracker.flame(shape_params = shape, expression_params = exp_t, head_pose_params = head_pose,  jaw_pose_params = jaw_pose)
-
-                self.tracker.deca.ret_dict['verts'][0] = verts_neutral
-
-                    
-            self.tracker.deca.save_obj(
-            os.path.join(out_dir, file_name, new_file_name), 
-            self.tracker.deca.ret_dict
-            )
-
-            if last_file_address != None:
-                if not compare_files_line_by_line(last_file_address, current_file_address):
-                    print(f"The file in address: {last_file_address} are not iqual to file in address {current_file_address}")
-                else:
-                    print("<== !!! Equal files !!! ===>")
-
-            last_file_address =  current_file_address
-
-
+            
             # trimesh.Trimesh(
             #     vertices = verts_neutral[0].detach().cpu().numpy(), 
             #     faces = faces, 

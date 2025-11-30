@@ -37,9 +37,9 @@ from pydub import AudioSegment # Import pydub for audio manipulation
 from dotenv import load_dotenv
 
 #### Audio Spech record dependecies ###
-from TTS.api import TTS
-from TTS.tts.configs.xtts_config import XttsConfig
-from TTS.tts.models.xtts import Xtts
+# from TTS.api import TTS
+# from TTS.tts.configs.xtts_config import XttsConfig
+# from TTS.tts.models.xtts import Xtts
 
 
 load_dotenv()  # Esto cargará las variables de entorno desde un archivo .env si está presente
